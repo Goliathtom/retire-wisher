@@ -246,6 +246,26 @@
       font-size: 0.78rem;
       line-height: 1.7;
     }
+
+    .export-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 14px;
+      background: rgba(108,140,255,0.12);
+      border: 1px solid rgba(108,140,255,0.35);
+      border-radius: var(--radius);
+      color: var(--accent);
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .export-btn:hover { background: rgba(108,140,255,0.22); border-color: var(--accent); }
+    .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -289,6 +309,7 @@
   </div>
 
   <!-- Result Hero -->
+  <div id="resultArea">
   <div class="result-hero">
     <div class="result-box">
       <div class="label">💼 근로소득 월 실수령</div>
@@ -338,7 +359,6 @@
     </div>
     <div class="info-banner" id="infoBanner"></div>
   </div>
-
   <!-- Tax bracket reference -->
   <div class="card">
     <div class="card-title">📋 종합소득세 과세표준 (2026년 기준)</div>
@@ -353,6 +373,9 @@
       <tbody id="taxBracketTable"></tbody>
     </table>
   </div>
+  </div><!-- /resultArea -->
+
+  <button class="export-btn" onclick="exportImage()">📷 이미지로 내보내기</button>
 
   <footer>
     2026년 세법 기준 · 4대보험 요율 적용 (국민연금 4.75%, 건강보험 3.595%, 장기요양 0.4724%, 고용보험 0.9%)<br>
@@ -362,6 +385,7 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

@@ -378,6 +378,28 @@ function renderTaxTable() {
   });
 }
 
+/* ===================== 이미지 내보내기 ===================== */
+function exportImage() {
+  const btn = document.querySelector('.export-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 생성 중...';
+
+  const target = document.getElementById('resultArea');
+  html2canvas(target, {
+    backgroundColor: '#0f1117',
+    scale: 2,
+    useCORS: true,
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = '은퇴바라기_실수령계산.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '📷 이미지로 내보내기';
+  });
+}
+
 /* ===================== 초기화 ===================== */
 renderTaxTable();
 syncSlider('salary');
