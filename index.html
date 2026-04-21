@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>은퇴바라기 — 배당·이자소득 실수령 계산기</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3248;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px 80px;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .hero-emoji { font-size: 48px; margin-bottom: 12px; }
+    .hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
+
+    .container { max-width: 820px; margin: 0 auto; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .input-group { margin-bottom: 20px; }
+    .input-group:last-child { margin-bottom: 0; }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    label .sub { font-weight: 400; color: var(--muted); font-size: 0.8rem; margin-left: 6px; }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 12px 56px 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-wrap input:focus { border-color: var(--accent); }
+    .input-unit {
+      position: absolute;
+      right: 14px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .slider-wrap {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .slider-label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; min-width: 50px; text-align: right; }
+
+    /* Results */
+    .result-hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 520px) { .result-hero { grid-template-columns: 1fr; } }
+
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+    .result-box.highlight {
+      border-color: var(--accent);
+      background: rgba(108,140,255,0.08);
+    }
+    .result-box .label { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+    .result-box .amount { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; }
+    .result-box .amount.green { color: var(--green); }
+    .result-box .amount.accent { color: var(--accent); }
+    .result-box .sub-amount { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+    /* Breakdown table */
+    .breakdown {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .breakdown tr { border-bottom: 1px solid var(--border); }
+    .breakdown tr:last-child { border-bottom: none; }
+    .breakdown td { padding: 10px 4px; }
+    .breakdown td:last-child { text-align: right; font-weight: 600; }
+    .breakdown .section-header td {
+      padding-top: 16px;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .breakdown .deduct td:last-child { color: var(--red); }
+    .breakdown .total td { font-weight: 700; font-size: 0.95rem; }
+    .breakdown .total td:last-child { color: var(--green); }
+    .breakdown .note td { font-size: 0.76rem; color: var(--muted); border: none; padding-top: 2px; padding-bottom: 6px; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .badge-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+    .badge-blue { background: rgba(108,140,255,0.15); color: var(--accent); }
+    .badge-purple { background: rgba(167,139,250,0.15); color: var(--accent2); }
+
+    .info-banner {
+      background: rgba(108,140,255,0.08);
+      border: 1px solid rgba(108,140,255,0.25);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+    .info-banner strong { color: var(--accent); }
+
+    .tax-table-ref {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .tax-table-ref th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .tax-table-ref td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(46,50,72,0.5);
+    }
+    .tax-table-ref tr.active td { background: rgba(108,140,255,0.1); color: var(--accent); font-weight: 600; }
+    .tax-table-ref td:last-child { text-align: right; }
+
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 640px) { .breakdown-grid { grid-template-columns: 1fr; } }
+
+    .total-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 520px) { .total-grid { grid-template-columns: 1fr; } }
+
+    .total-cell {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+    }
+    .total-cell-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+    .total-cell-amount { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; }
+    .total-cell-amount.accent { color: var(--accent); }
+    .total-cell-amount.green { color: var(--green); }
+
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-emoji">🌅</div>
+    <h1>은퇴<span>바라기</span></h1>
+    <p>근로소득과 금융소득을 입력하면 대한민국 세법 기준 실수령액을 계산해 드립니다.</p>
+  </div>
+
+  <!-- Inputs -->
+  <div class="card">
+    <div class="card-title">📊 소득 입력</div>
+
+    <div class="input-group">
+      <label>연봉 (근로소득) <span class="sub">세전 총급여 기준</span></label>
+      <div class="input-wrap">
+        <input type="number" id="salary" min="0" step="100" value="60000000" oninput="syncSlider('salary'); calculate()" />
+        <span class="input-unit">원</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="salaryRange" min="0" max="500000000" step="1000000" value="60000000"
+               oninput="syncInput('salary'); calculate()" />
+        <span class="slider-label" id="salaryLabel">6,000만원</span>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>희망 연간 배당·이자소득 <span class="sub">금융소득 세전 기준</span></label>
+      <div class="input-wrap">
+        <input type="number" id="dividend" min="0" step="100" value="24000000" oninput="syncSlider('dividend'); calculate()" />
+        <span class="input-unit">원</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="dividendRange" min="0" max="300000000" step="500000" value="24000000"
+               oninput="syncInput('dividend'); calculate()" />
+        <span class="slider-label" id="dividendLabel">2,400만원</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Hero -->
+  <div class="result-hero">
+    <div class="result-box">
+      <div class="label">💼 근로소득 월 실수령</div>
+      <div class="amount accent" id="salaryMonthly">—</div>
+      <div class="sub-amount" id="salaryYearly">연 — 원</div>
+    </div>
+    <div class="result-box">
+      <div class="label">💰 배당·이자 월 실수령</div>
+      <div class="amount green" id="divMonthly">—</div>
+      <div class="sub-amount" id="divYearly">연 — 원</div>
+    </div>
+  </div>
+  <div class="result-box highlight" style="margin-bottom:20px; padding: 24px;">
+    <div class="label">🎯 합산 월 실수령 (세후)</div>
+    <div class="amount accent" style="font-size:2.4rem;" id="totalMonthly">—</div>
+    <div class="sub-amount" id="totalYearly">연 — 원</div>
+  </div>
+
+  <!-- Breakdown -->
+  <div class="breakdown-grid">
+    <div class="card">
+      <div class="card-title">💼 근로소득 세금 내역</div>
+      <table class="breakdown">
+        <tbody id="salaryBreakdownBody"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 금융소득 세금 내역</div>
+      <table class="breakdown">
+        <tbody id="divBreakdownBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Total summary -->
+  <div class="card">
+    <div class="card-title">🎯 합산 실수령</div>
+    <div class="total-grid">
+      <div class="total-cell">
+        <div class="total-cell-label">월 합산 실수령</div>
+        <div class="total-cell-amount accent" id="summaryMonthly">—</div>
+      </div>
+      <div class="total-cell">
+        <div class="total-cell-label">연 합산 실수령</div>
+        <div class="total-cell-amount green" id="summaryYearly">—</div>
+      </div>
+    </div>
+    <div class="info-banner" id="infoBanner"></div>
+  </div>
+
+  <!-- Tax bracket reference -->
+  <div class="card">
+    <div class="card-title">📋 종합소득세 과세표준 (2026년 기준)</div>
+    <table class="tax-table-ref">
+      <thead>
+        <tr>
+          <th>과세표준</th>
+          <th>세율</th>
+          <th style="text-align:right">누진공제</th>
+        </tr>
+      </thead>
+      <tbody id="taxBracketTable"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    2026년 세법 기준 · 4대보험 요율 적용 (국민연금 4.75%, 건강보험 3.595%, 장기요양 0.4724%, 고용보험 0.9%)<br>
+    근로소득공제, 기본공제(본인), 근로소득세액공제, 표준세액공제 반영 · 금융소득 종합과세 기준 2,000만원<br>
+    <strong style="color: var(--accent);">※ 본 계산기는 참고용이며, 개인 공제 상황에 따라 실제 세액은 다를 수 있습니다.</strong>
+  </footer>
+
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
