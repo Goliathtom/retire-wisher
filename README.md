@@ -1,5 +1,7 @@
 # 🌅 은퇴바라기
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 대한민국 세법 기준으로 **근로소득 + 배당·이자소득의 세후 실수령액**을 계산하는 단일 페이지 계산기입니다.
 
 ## 주요 기능
