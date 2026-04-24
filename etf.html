@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>은퇴바라기 — ETF 배당 계산기</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3248;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* ── 네비게이션 ── */
+    .site-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-inner {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 56px;
+    }
+    .nav-logo {
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+      margin-right: 12px;
+    }
+    .nav-link {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.active { color: var(--accent); background: rgba(108,140,255,0.12); }
+
+    /* ── 레이아웃 ── */
+    .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 0; }
+
+    .hero { text-align: center; margin-bottom: 40px; }
+    .hero-emoji { font-size: 48px; margin-bottom: 12px; }
+    .hero h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    /* ── 슬라이더 ── */
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap input[type=number] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 12px 56px 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-wrap input:focus { border-color: var(--accent); }
+    .input-unit {
+      position: absolute;
+      right: 14px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .slider-wrap {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .slider-label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; min-width: 60px; text-align: right; }
+
+    /* ── 전략 카드 ── */
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 640px) { .strategy-grid { grid-template-columns: 1fr; } }
+
+    .strategy-card {
+      cursor: pointer;
+      display: block;
+    }
+    .strategy-card input[type=radio] { display: none; }
+    .strategy-card-inner {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      transition: border-color 0.2s, background 0.2s;
+      height: 100%;
+    }
+    .strategy-card input:checked + .strategy-card-inner {
+      border-color: var(--accent);
+      background: rgba(108,140,255,0.08);
+    }
+    .strategy-card:hover .strategy-card-inner { border-color: rgba(108,140,255,0.5); }
+
+    .strategy-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .strategy-name { font-size: 0.95rem; font-weight: 700; }
+    .strategy-yield-badge {
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: rgba(52,211,153,0.15);
+      color: var(--green);
+      padding: 2px 8px;
+      border-radius: 100px;
+    }
+    .strategy-desc { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+    .strategy-tag {
+      font-size: 0.72rem;
+      color: var(--accent2);
+      margin-bottom: 14px;
+    }
+
+    /* 비율 바 */
+    .strategy-bars { display: flex; flex-direction: column; gap: 6px; }
+    .bar-row { display: flex; align-items: center; gap: 8px; }
+    .bar-label { font-size: 0.72rem; font-weight: 700; color: var(--muted); width: 36px; }
+    .bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .bar-schd { background: var(--accent); }
+    .bar-jepi { background: var(--green); }
+    .bar-jepq { background: var(--accent2); }
+    .bar-pct { font-size: 0.7rem; color: var(--muted); width: 28px; text-align: right; }
+
+    /* ── 국가 토글 ── */
+    .country-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .country-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .country-btn:hover { color: var(--text); border-color: rgba(108,140,255,0.4); }
+    .country-btn.active {
+      background: rgba(108,140,255,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* 4개 전략일 때 2열 그리드 */
+    .strategy-grid.grid-4 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    @media (max-width: 640px) {
+      .strategy-grid.grid-4 { grid-template-columns: 1fr; }
+    }
+
+    /* ── 결과 ── */
+    #resultSection { display: none; }
+
+    .result-main {
+      background: rgba(108,140,255,0.08);
+      border: 1px solid rgba(108,140,255,0.3);
+      border-radius: var(--radius);
+      padding: 28px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .result-main .label { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+    .result-main .amount { font-size: 2.8rem; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+    .result-main .amount-after { font-size: 1.5rem; font-weight: 700; color: var(--green); letter-spacing: -0.02em; margin-top: 10px; }
+    .result-main .after-label { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+    .result-main .sub { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+    .result-main .divider { width: 40px; height: 1px; background: var(--border); margin: 14px auto; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 520px) { .result-grid { grid-template-columns: 1fr; } }
+
+    .result-cell {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      text-align: center;
+    }
+    .result-cell .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; }
+    .result-cell .row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+    .result-cell .row:first-of-type { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
+    .result-cell .row-label { font-size: 0.72rem; color: var(--muted); }
+    .result-cell .row-value { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; }
+    .result-cell .row-value.accent { color: var(--accent); }
+    .result-cell .row-value.green { color: var(--green); }
+    .result-cell .row-value.yellow { color: var(--yellow); }
+    .result-cell .row-value.yellow-after { color: #a3e635; }
+    .result-cell .sub { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+    /* ETF 기여 테이블 */
+    .etf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .etf-table th {
+      text-align: left;
+      padding: 8px 6px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .etf-table td {
+      padding: 10px 6px;
+      border-bottom: 1px solid rgba(46,50,72,0.5);
+    }
+    .etf-table tr:last-child td { border-bottom: none; }
+    .etf-table .green { color: var(--green); font-weight: 700; }
+    .etf-table .muted { color: var(--muted); font-size: 0.78rem; }
+    .etf-table .right { text-align: right; }
+
+    .info-banner {
+      background: rgba(108,140,255,0.06);
+      border: 1px solid rgba(108,140,255,0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+    .info-banner strong { color: var(--accent); }
+
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 네비게이션 -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <span class="nav-logo">🌅 은퇴바라기</span>
+    <a href="index.html" class="nav-link">소득 계산기</a>
+    <a href="etf.html" class="nav-link active">ETF 배당 계산기</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-emoji">📈</div>
+    <h1>ETF <span>배당 계산기</span></h1>
+    <p>투자금액과 전략을 선택하면 예상 배당 수익을 계산해 드립니다.</p>
+  </div>
+
+  <!-- 투자금액 입력 -->
+  <div class="card">
+    <div class="card-title">💰 총 투자금액</div>
+    <div class="input-wrap">
+      <input type="number" id="investment" min="0" max="1500000000" step="1000000" value="50000000"
+             oninput="syncSlider('investment')" />
+      <span class="input-unit">원</span>
+    </div>
+    <div class="slider-wrap">
+      <input type="range" id="investmentRange" min="0" max="1500000000" step="1000000" value="50000000"
+             oninput="syncInput('investment')" />
+      <span class="slider-label" id="investmentLabel">5,000만원</span>
+    </div>
+  </div>
+
+  <!-- 전략 선택 -->
+  <div class="card">
+    <div class="card-title">🎯 투자 전략 선택</div>
+    <div class="country-toggle">
+      <button class="country-btn active" id="btn-us" onclick="setCountry('us')">🇺🇸 미국 ETF</button>
+      <button class="country-btn" id="btn-kr" onclick="setCountry('kr')">🇰🇷 한국 ETF</button>
+    </div>
+    <div class="strategy-grid" id="strategyCards"></div>
+  </div>
+
+  <!-- 결과 -->
+  <div id="resultSection">
+    <div class="result-main">
+      <div class="label">💵 월 배당 예상금 (세전)</div>
+      <div class="amount" id="resultMonthly">—</div>
+      <div class="sub" id="resultMonthlyUSD">—</div>
+      <div class="divider"></div>
+      <div class="after-label">세후 (미국 원천징수 15% 적용)</div>
+      <div class="amount-after" id="resultMonthlyAfter">—</div>
+      <div class="sub" id="resultMonthlyAfterUSD">—</div>
+    </div>
+
+    <div class="result-grid">
+      <div class="result-cell">
+        <div class="label">📅 연간 배당 예상금</div>
+        <div class="row">
+          <span class="row-label">세전</span>
+          <span class="row-value accent" id="resultAnnual">—</span>
+        </div>
+        <div class="row">
+          <span class="row-label">세후</span>
+          <span class="row-value green" id="resultAnnualAfter">—</span>
+        </div>
+        <div class="sub" id="resultAnnualUSD">—</div>
+      </div>
+      <div class="result-cell">
+        <div class="label">📊 배당 수익률</div>
+        <div class="row">
+          <span class="row-label">세전</span>
+          <span class="row-value yellow" id="resultYield">—</span>
+        </div>
+        <div class="row">
+          <span class="row-label">세후</span>
+          <span class="row-value yellow-after" id="resultYieldAfter">—</span>
+        </div>
+        <div class="sub">원천징수 15% 반영</div>
+      </div>
+    </div>
+
+    <div class="result-cell" style="margin-bottom:20px;">
+      <div class="label">🇺🇸 투자금 (USD)</div>
+      <div class="row-value accent" id="resultInvestUSD" style="font-size:1.4rem;font-weight:800;">—</div>
+      <div class="sub" style="margin-top:6px;">1$ = 1,450원</div>
+    </div>
+
+    <!-- ETF별 기여 -->
+    <div class="card">
+      <div class="card-title">🔍 ETF별 배당 기여</div>
+      <table class="etf-table">
+        <thead>
+          <tr>
+            <th>ETF</th>
+            <th>비중</th>
+            <th>투자금</th>
+            <th>월 배당</th>
+            <th style="text-align:right">수익률</th>
+          </tr>
+        </thead>
+        <tbody id="etfBreakdown"></tbody>
+      </table>
+      <div class="info-banner" id="taxInfoBanner"></div>
+    </div>
+  </div>
+
+  <footer>
+    ETF 배당 수익률: SCHD 3.4% · JEPI 8.8% · JEPQ 10.5% (TTM 기준) · 환율 1$ = 1,450원<br>
+    <strong style="color: var(--accent);">※ 본 계산기는 참고용이며, 실제 배당은 시장 상황에 따라 달라질 수 있습니다.</strong>
+  </footer>
+
+</div>
+
+<script src="etf.js"></script>
+</body>
+</html>
