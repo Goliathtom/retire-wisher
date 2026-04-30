@@ -225,12 +225,140 @@
       color: var(--accent);
     }
 
-    /* 4개 전략일 때 2열 그리드 */
+    /* 4개 이상 전략일 때 2열 그리드 */
     .strategy-grid.grid-4 {
       grid-template-columns: repeat(2, 1fr);
     }
     @media (max-width: 640px) {
       .strategy-grid.grid-4 { grid-template-columns: 1fr; }
+    }
+
+    /* ── 직접 구성 카드 ── */
+    .custom-card-inner { border-style: dashed !important; }
+    .strategy-card input:checked + .custom-card-inner { border-style: solid !important; }
+    .custom-card-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 10px;
+      padding: 6px 10px;
+      background: var(--surface);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    /* ── 커스텀 빌더 ── */
+    #customBuilder {
+      display: none;
+      margin-top: 20px;
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+    }
+    .custom-builder-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .custom-builder-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .custom-action-btn {
+      padding: 5px 14px;
+      background: rgba(108,140,255,0.1);
+      border: 1px solid rgba(108,140,255,0.3);
+      border-radius: 6px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .custom-action-btn:hover { background: rgba(108,140,255,0.22); }
+
+    .custom-etf-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 14px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .custom-etf-row:last-child { border-bottom: none; }
+    .custom-etf-ticker { font-size: 0.88rem; font-weight: 700; }
+    .custom-etf-name   { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .custom-yield-badge {
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+    .custom-alloc { display: flex; align-items: center; gap: 8px; }
+    .custom-range {
+      width: 90px;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+    }
+    .custom-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    @media (max-width: 520px) { .custom-range { width: 60px; } }
+    .custom-number {
+      width: 50px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 5px 6px;
+      text-align: right;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    .custom-number::-webkit-inner-spin-button,
+    .custom-number::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .custom-number:focus { border-color: var(--accent); }
+    .custom-pct { font-size: 0.8rem; color: var(--muted); }
+
+    .custom-total-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .custom-total-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .custom-total-fill { height: 100%; border-radius: 3px; transition: width 0.2s, background 0.2s; }
+    .custom-total-text { min-width: 42px; text-align: right; font-size: 0.9rem; font-weight: 800; }
+    .custom-total-text.ok    { color: var(--green); }
+    .custom-total-text.over  { color: var(--red); }
+    .custom-total-text.under { color: var(--yellow); }
+    .custom-warning {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      color: var(--yellow);
     }
 
     /* ── 결과 ── */
@@ -364,6 +492,23 @@
       <button class="country-btn" id="btn-kr" onclick="setCountry('kr')">🇰🇷 한국 ETF</button>
     </div>
     <div class="strategy-grid" id="strategyCards"></div>
+
+    <!-- 커스텀 빌더 -->
+    <div id="customBuilder">
+      <div class="custom-builder-header">
+        <span class="custom-builder-title">⚙️ ETF 비율 설정</span>
+        <button class="custom-action-btn" onclick="distributeEvenly()">균등 배분</button>
+      </div>
+      <div id="customEtfList"></div>
+      <div class="custom-total-bar">
+        <span>합계</span>
+        <div class="custom-total-track">
+          <div class="custom-total-fill" id="customTotalFill"></div>
+        </div>
+        <span class="custom-total-text under" id="customTotalText">0%</span>
+      </div>
+      <div class="custom-warning" id="customWarning" style="display:none;"></div>
+    </div>
   </div>
 
   <!-- 결과 -->
