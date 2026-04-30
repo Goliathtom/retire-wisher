@@ -285,8 +285,8 @@ function syncCustomAlloc(key, rawVal, source) {
 
   const row = document.querySelector(`.custom-etf-row[data-key="${CSS.escape(key)}"]`);
   if (row) {
-    if (source !== 'range') row.querySelector('.custom-range').value = val;
-    if (source !== 'num')   row.querySelector('.custom-number').value = val;
+    row.querySelector('.custom-range').value  = val;
+    row.querySelector('.custom-number').value = val; // 항상 clamped 값으로 덮어씀
   }
 
   updateCustomTotalUI();
