@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2] - 2026-05-06
+
+### Added
+- QQQI(NEOS Nasdaq-100 High Income ETF) 미국 ETF 목록 추가 (수익률 ~13.5%)
+- 미국 ETF 전략 'QQQI 고배당형' 추가 (SCHD 20% · QQQI 40% · JEPQ 40%, 수익률 ~10.3%)
+- ETF 배당 계산기 푸터에 SPYI·QQQI 수익률 정보 추가
+
 ## [1.4.1] - 2026-05-06
 
 ### Fixed

@@ -9,6 +9,7 @@ const ETF_DATA = {
   JEPI: { yield: 0.088, color: 'var(--green)',   fullName: 'JPMorgan Equity Premium Income ETF' },
   JEPQ: { yield: 0.105, color: 'var(--accent2)', fullName: 'JPMorgan Nasdaq Equity Premium Income ETF' },
   SPYI: { yield: 0.120, color: 'var(--yellow)',  fullName: 'NEOS S&P 500 High Income ETF' },
+  QQQI: { yield: 0.135, color: '#e17055',        fullName: 'NEOS Nasdaq-100 High Income ETF' },
   /* 국내 ETF */
   'TIGER배당다우':      { yield: 0.035, color: 'var(--accent)',  fullName: 'TIGER 미국배당다우존스' },
   'SOL배당다우':        { yield: 0.035, color: 'var(--accent)',  fullName: 'SOL 미국배당다우존스' },
@@ -19,12 +20,12 @@ const ETF_DATA = {
 };
 
 /* 커스텀 빌더에서 선택 가능한 ETF 목록 */
-const CUSTOM_ETFS_US = ['SCHD', 'JEPI', 'JEPQ', 'SPYI'];
+const CUSTOM_ETFS_US = ['SCHD', 'JEPI', 'JEPQ', 'SPYI', 'QQQI'];
 const CUSTOM_ETFS_KR = ['TIGER배당다우', 'SOL배당다우', 'TIGER프리미엄', 'KODEX프리미엄', 'KODEX나스닥프리미엄', 'TIGER고배당'];
 
 /* 커스텀 초기 배분 (합계 = 100) */
 const customAllocations = {
-  us: { SCHD: 40, JEPI: 30, JEPQ: 20, SPYI: 10 },
+  us: { SCHD: 40, JEPI: 30, JEPQ: 20, SPYI: 10, QQQI: 0 },
   kr: { 'TIGER배당다우': 50, 'SOL배당다우': 0, 'TIGER프리미엄': 50, 'KODEX프리미엄': 0, 'KODEX나스닥프리미엄': 0, 'TIGER고배당': 0 },
 };
 
@@ -70,6 +71,17 @@ const STRATEGIES_US = [
     etfs: [
       { key: 'SCHD', label: 'SCHD', weight: 0.20 },
       { key: 'SPYI', label: 'SPYI', weight: 0.40 },
+      { key: 'JEPQ', label: 'JEPQ', weight: 0.40 },
+    ],
+  },
+  {
+    id: 'qqqi_highdiv',
+    name: 'QQQI 고배당형',
+    desc: 'SCHD 20% · QQQI 40% · JEPQ 40%',
+    tag: '나스닥 기반 최고 배당',
+    etfs: [
+      { key: 'SCHD', label: 'SCHD', weight: 0.20 },
+      { key: 'QQQI', label: 'QQQI', weight: 0.40 },
       { key: 'JEPQ', label: 'JEPQ', weight: 0.40 },
     ],
   },
