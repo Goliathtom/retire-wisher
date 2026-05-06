@@ -155,6 +155,18 @@ function calcAll(salary, dividend) {
     divLocalTax = divTax - divFinalTax;
   }
 
+  let effectiveTaxBase = salaryTaxBase;
+  if (dividend > THRESHOLD) {
+    const excess = dividend - THRESHOLD;
+    if (retiredMode) {
+      effectiveTaxBase = divTaxBase;
+    } else if (divTaxMethod === 'comprehensive_A') {
+      effectiveTaxBase = salaryTaxBase + dividend;
+    } else {
+      effectiveTaxBase = salaryTaxBase + excess;
+    }
+  }
+
   let divHealthIns = 0, divLongtermIns = 0;
   if (retiredMode && dividend > THRESHOLD) {
     divHealthIns  = Math.floor(dividend * 0.0719);
@@ -174,6 +186,7 @@ function calcAll(salary, dividend) {
     salaryNet,
     divTaxBase, divRawTax,
     divTax, divHealthIns, divLongtermIns, divNet, divTaxMethod, divFinalTax, divLocalTax,
+    effectiveTaxBase,
     totalNet: salaryNet + divNet,
   };
 }
@@ -339,7 +352,7 @@ function calculate() {
   document.getElementById('infoBanner').innerHTML = bannerHTML;
 
   /* Tax bracket highlight */
-  const activeIdx = activeBracket(r.salaryTaxBase);
+  const activeIdx = activeBracket(r.effectiveTaxBase);
   const rows2 = document.querySelectorAll('#taxBracketTable tr');
   rows2.forEach((tr, i) => {
     tr.classList.toggle('active', i === activeIdx);
