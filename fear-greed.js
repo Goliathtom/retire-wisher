@@ -199,7 +199,8 @@ function apply(data) {
 /* ===================== 세부 지표 렌더 ===================== */
 function findIndicator(data, keys) {
   for (const k of keys) {
-    if (data[k]) return { current: data[k], historical: data[k + '_historical']?.data ?? [] };
+    /* 세부 지표는 객체 안의 data 배열에 시계열이 들어있다 (별도 _historical 키 없음) */
+    if (data[k]) return { current: data[k], historical: data[k].data ?? [] };
   }
   return null;
 }
@@ -222,8 +223,11 @@ function renderSparkline(hist, color) {
   const xs = recent.map(p => p.x);
   const ys = recent.map(p => p.y);
   const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  /* 원본 지표값은 단위가 제각각이라 min/max로 자동 스케일링 */
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const yRange = (yMax - yMin) || 1;
   const xScale = v => PAD + ((v - xMin) / (xMax - xMin || 1)) * (W - PAD * 2);
-  const yScale = v => PAD + (1 - v / 100) * (H - PAD * 2);
+  const yScale = v => PAD + (1 - (v - yMin) / yRange) * (H - PAD * 2);
 
   const line = recent.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x).toFixed(1)} ${yScale(p.y).toFixed(1)}`).join(' ');
   const area = line + ` L ${xScale(xMax).toFixed(1)} ${H - PAD} L ${PAD} ${H - PAD} Z`;
