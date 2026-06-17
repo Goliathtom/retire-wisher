@@ -23,6 +23,7 @@
 - **직접 구성** — ETF 종목별 비율을 슬라이더로 자유롭게 설정하는 커스텀 포트폴리오
 - **세전·세후 동시 표기** — 미국 원천징수 15% / 국내 배당소득세 15.4% 반영
 - **ETF별 배당 기여 내역** — 비중·투자금·월 배당·수익률 상세 표시
+- **미국 ETF 실시간 수익률** — 페이지 로드 시 Yahoo Finance(yfinance 동일 소스)에서 TTM 수익률을 자동 조회·반영 (CORS 프록시 fallback + 1시간 캐시). 국내 ETF는 `scripts/update_yields.py`(pykrx) 기준
 
 ### 📊 CNN Fear & Greed Index (`fear-greed.html`)
 - **반원형 게이지** — 0(극도의 공포) ~ 100(극도의 탐욕)을 5단계 색상으로 시각화
@@ -63,8 +64,27 @@ npx serve .
 ├── etf.html         # ETF 배당 계산기 — UI 마크업 + 스타일
 ├── etf.js           # ETF 배당 계산기 — 전략 계산 로직 및 UI 렌더링
 ├── fear-greed.html  # CNN Fear & Greed Index — UI 마크업 + 스타일
-└── fear-greed.js    # CNN Fear & Greed Index — 데이터 페치 및 차트 렌더링
+├── fear-greed.js    # CNN Fear & Greed Index — 데이터 페치 및 차트 렌더링
+└── scripts/
+    ├── requirements.txt   # yfinance, pykrx
+    └── update_yields.py   # ETF 배당 수익률(TTM) 자동 갱신 스크립트
 ```
+
+## ETF 수익률 갱신
+
+`etf.js` 의 `ETF_DATA` 에 하드코딩된 배당 수익률(TTM)은 다음 스크립트로 갱신한다.
+**해외(미국) ETF 는 [yfinance](https://github.com/ranaroussi/yfinance), 국내 ETF 는 [pykrx](https://github.com/sharebook-kr/pykrx)** 를 사용한다.
+
+```bash
+cd scripts
+pip install -r requirements.txt
+python update_yields.py            # etf.js 의 yield 값을 갱신
+python update_yields.py --dry-run  # 계산만 하고 파일은 건드리지 않음
+```
+
+- 미국 ETF: 최근 12개월 분배금 합 ÷ 현재가 로 TTM 수익률 계산
+- 국내 ETF: 종목코드는 `update_yields.py` 상단 `KR_TICKERS` 에서 관리하며, 미확인 코드는 빈 문자열로 두면 건너뛴다. pykrx 는 ETF 분배금 시계열을 직접 제공하지 않아 fundamental 의 `DIV` 로 fallback 하므로, 값이 없으면 기존 수익률을 유지한다.
+- 사내 프록시(자체 서명 인증서) 환경에서 yfinance SSL 오류가 나면 `ETF_INSECURE_SSL=1` 환경변수로 검증을 우회할 수 있다 (사내망에서만 사용 권장).
 
 ## 주의사항
 

@@ -5,12 +5,12 @@ const WITHHOLDING_KR = 0.154;
 
 const ETF_DATA = {
   /* 미국 ETF - 수익률 오름차순 */
-  SCHD: { yield: 0.0325, color: 'var(--accent)',  fullName: 'Schwab US Dividend Equity ETF' },
+  SCHD: { yield: 0.0324, color: 'var(--accent)',  fullName: 'Schwab US Dividend Equity ETF' },
   JEPI: { yield: 0.0811, color: 'var(--green)',   fullName: 'JPMorgan Equity Premium Income ETF' },
   GPIQ: { yield: 0.0943, color: '#38bdf8',        fullName: 'Goldman Sachs Nasdaq-100 Core Premium Income ETF' },
   JEPQ: { yield: 0.1007, color: 'var(--accent2)', fullName: 'JPMorgan Nasdaq Equity Premium Income ETF' },
-  SPYI: { yield: 0.1179, color: 'var(--yellow)',  fullName: 'NEOS S&P 500 High Income ETF' },
-  QQQI: { yield: 0.1353, color: '#e17055',        fullName: 'NEOS Nasdaq-100 High Income ETF' },
+  SPYI: { yield: 0.1279, color: 'var(--yellow)',  fullName: 'NEOS S&P 500 High Income ETF' },
+  QQQI: { yield: 0.147, color: '#e17055',        fullName: 'NEOS Nasdaq-100 High Income ETF' },
   /* 국내 ETF - 수익률 오름차순 */
   'TIGER배당다우':      { yield: 0.035, color: 'var(--accent)',  fullName: 'TIGER 미국배당다우존스' },
   'SOL배당다우':        { yield: 0.038, color: 'var(--accent)',  fullName: 'SOL 미국배당다우존스' },
@@ -421,7 +421,114 @@ function renderStrategyCards() {
   document.getElementById('customEtfList').dataset.country = '';
 }
 
+/* ===================== 미국 ETF 실시간 수익률 (yfinance/Yahoo 엔드포인트) ===================== */
+/* yfinance 가 내부적으로 사용하는 Yahoo Finance chart 엔드포인트를 브라우저에서 직접 호출.
+   가격 + 최근 1년 배당 내역으로 TTM 수익률을 계산한다.
+   CORS 프록시 자동 fallback + localStorage 1시간 캐시 (fear-greed.js 패턴 재사용). */
+const YF_PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+const YF_CACHE_KEY = 'etf_yield_cache';
+const YF_CACHE_TTL = 60 * 60 * 1000; // 1시간
+const YF_CHART_URL = (sym) =>
+  `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1y&interval=1d&events=div`;
+
+async function yfTryFetch(url) {
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+/* Yahoo chart 응답 -> TTM 배당수익률(소수). 실패 시 null. */
+function ttmYieldFromChart(json) {
+  const result = json?.chart?.result?.[0];
+  const price = result?.meta?.regularMarketPrice;
+  const dividends = result?.events?.dividends;
+  if (!price || price <= 0 || !dividends) return null;
+
+  const cutoff = Date.now() / 1000 - 365 * 24 * 60 * 60;
+  let ttm = 0;
+  for (const k in dividends) {
+    const d = dividends[k];
+    if (d && d.date >= cutoff && typeof d.amount === 'number') ttm += d.amount;
+  }
+  if (ttm <= 0) return null;
+  return ttm / price;
+}
+
+async function fetchYahooYield(sym) {
+  const url = YF_CHART_URL(sym);
+  let json;
+  try {
+    json = await yfTryFetch(url);
+  } catch (e1) {
+    json = await yfTryFetch(YF_PROXY_URL(url)); // CORS 프록시 fallback
+  }
+  return ttmYieldFromChart(json);
+}
+
+function applyYields(yields) {
+  let updated = 0;
+  for (const key in yields) {
+    if (ETF_DATA[key] && typeof yields[key] === 'number') {
+      ETF_DATA[key].yield = Math.round(yields[key] * 10000) / 10000;
+      updated++;
+    }
+  }
+  return updated;
+}
+
+function refreshYieldFooter() {
+  const el = document.getElementById('etfYieldFooter');
+  if (!el) return;
+  const parts = CUSTOM_ETFS_US.map((k) => `${k} ${(ETF_DATA[k].yield * 100).toFixed(1)}%`);
+  el.textContent = `ETF 배당 수익률: ${parts.join(' · ')} (TTM 기준)`;
+}
+
+function setYieldStatus(msg) {
+  const el = document.getElementById('liveYieldStatus');
+  if (el) el.textContent = msg;
+}
+
+async function loadLiveYields() {
+  /* 캐시 확인 */
+  try {
+    const cached = JSON.parse(localStorage.getItem(YF_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < YF_CACHE_TTL) {
+      applyYields(cached.yields);
+      refreshYieldFooter();
+      renderStrategyCards();
+      calculate();
+      const t = new Date(cached.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      setYieldStatus(`💾 미국 ETF 실시간 수익률 캐시 사용 중 (${t} 기준, 1시간 유효)`);
+      return;
+    }
+  } catch (e) {}
+
+  setYieldStatus('⏳ 미국 ETF 실시간 수익률(Yahoo) 불러오는 중…');
+  const yields = {};
+  const settled = await Promise.allSettled(
+    CUSTOM_ETFS_US.map(async (k) => {
+      const y = await fetchYahooYield(k);
+      if (y != null) yields[k] = y;
+    })
+  );
+
+  const n = applyYields(yields);
+  if (n === 0) {
+    setYieldStatus('⚠️ 실시간 수익률을 가져오지 못해 기본값을 사용합니다. (국내 ETF는 pykrx 스크립트 기준)');
+    return;
+  }
+
+  localStorage.setItem(YF_CACHE_KEY, JSON.stringify({ ts: Date.now(), yields }));
+  refreshYieldFooter();
+  renderStrategyCards();
+  calculate();
+  const failed = CUSTOM_ETFS_US.filter((k) => !(k in yields));
+  const suffix = failed.length ? ` (일부 실패: ${failed.join(', ')} — 기본값 유지)` : '';
+  setYieldStatus(`✅ 미국 ETF 실시간 수익률 적용 완료 (Yahoo Finance, TTM)${suffix} · 국내 ETF는 pykrx 스크립트 기준`);
+}
+
 /* ===================== 초기화 ===================== */
 renderStrategyCards();
 updateSliderLabel('investment', parseFloat(document.getElementById('investment').value) || 0);
 calculate();
+loadLiveYields();
