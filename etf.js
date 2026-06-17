@@ -4,29 +4,30 @@ const WITHHOLDING_US = 0.15;
 const WITHHOLDING_KR = 0.154;
 
 const ETF_DATA = {
-  /* 미국 ETF */
-  SCHD: { yield: 0.034, color: 'var(--accent)',  fullName: 'Schwab US Dividend Equity ETF' },
-  JEPI: { yield: 0.088, color: 'var(--green)',   fullName: 'JPMorgan Equity Premium Income ETF' },
-  JEPQ: { yield: 0.105, color: 'var(--accent2)', fullName: 'JPMorgan Nasdaq Equity Premium Income ETF' },
-  SPYI: { yield: 0.120, color: 'var(--yellow)',  fullName: 'NEOS S&P 500 High Income ETF' },
-  QQQI: { yield: 0.135, color: '#e17055',        fullName: 'NEOS Nasdaq-100 High Income ETF' },
-  /* 국내 ETF */
+  /* 미국 ETF - 수익률 오름차순 */
+  SCHD: { yield: 0.0325, color: 'var(--accent)',  fullName: 'Schwab US Dividend Equity ETF' },
+  JEPI: { yield: 0.0811, color: 'var(--green)',   fullName: 'JPMorgan Equity Premium Income ETF' },
+  GPIQ: { yield: 0.0943, color: '#38bdf8',        fullName: 'Goldman Sachs Nasdaq-100 Core Premium Income ETF' },
+  JEPQ: { yield: 0.1007, color: 'var(--accent2)', fullName: 'JPMorgan Nasdaq Equity Premium Income ETF' },
+  SPYI: { yield: 0.1179, color: 'var(--yellow)',  fullName: 'NEOS S&P 500 High Income ETF' },
+  QQQI: { yield: 0.1353, color: '#e17055',        fullName: 'NEOS Nasdaq-100 High Income ETF' },
+  /* 국내 ETF - 수익률 오름차순 */
   'TIGER배당다우':      { yield: 0.035, color: 'var(--accent)',  fullName: 'TIGER 미국배당다우존스' },
-  'SOL배당다우':        { yield: 0.035, color: 'var(--accent)',  fullName: 'SOL 미국배당다우존스' },
+  'SOL배당다우':        { yield: 0.038, color: 'var(--accent)',  fullName: 'SOL 미국배당다우존스' },
+  'TIGER고배당':        { yield: 0.045, color: 'var(--yellow)',  fullName: 'TIGER 고배당' },
   'TIGER프리미엄':      { yield: 0.075, color: 'var(--green)',   fullName: 'TIGER 미국배당+7%프리미엄' },
   'KODEX프리미엄':      { yield: 0.075, color: 'var(--green)',   fullName: 'KODEX 미국배당프리미엄' },
   'KODEX나스닥프리미엄': { yield: 0.090, color: 'var(--accent2)', fullName: 'KODEX 미국배당나스닥프리미엄' },
-  'TIGER고배당':        { yield: 0.045, color: 'var(--yellow)',  fullName: 'TIGER 고배당' },
 };
 
 /* 커스텀 빌더에서 선택 가능한 ETF 목록 */
-const CUSTOM_ETFS_US = ['SCHD', 'JEPI', 'JEPQ', 'SPYI', 'QQQI'];
-const CUSTOM_ETFS_KR = ['TIGER배당다우', 'SOL배당다우', 'TIGER프리미엄', 'KODEX프리미엄', 'KODEX나스닥프리미엄', 'TIGER고배당'];
+const CUSTOM_ETFS_US = ['SCHD', 'JEPI', 'GPIQ', 'JEPQ', 'SPYI', 'QQQI'];
+const CUSTOM_ETFS_KR = ['TIGER배당다우', 'SOL배당다우', 'TIGER고배당', 'TIGER프리미엄', 'KODEX프리미엄', 'KODEX나스닥프리미엄'];
 
 /* 커스텀 초기 배분 (합계 = 100) */
 const customAllocations = {
-  us: { SCHD: 40, JEPI: 30, JEPQ: 20, SPYI: 10, QQQI: 0 },
-  kr: { 'TIGER배당다우': 50, 'SOL배당다우': 0, 'TIGER프리미엄': 50, 'KODEX프리미엄': 0, 'KODEX나스닥프리미엄': 0, 'TIGER고배당': 0 },
+  us: { SCHD: 40, JEPI: 30, GPIQ: 0, JEPQ: 20, SPYI: 10, QQQI: 0 },
+  kr: { 'TIGER배당다우': 50, 'SOL배당다우': 0, 'TIGER고배당': 0, 'TIGER프리미엄': 50, 'KODEX프리미엄': 0, 'KODEX나스닥프리미엄': 0 },
 };
 
 const STRATEGIES_US = [

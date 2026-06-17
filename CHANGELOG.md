@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.0] - 2026-06-17
+
+### Added
+- GPIQ(Goldman Sachs Nasdaq-100 Core Premium Income ETF) 미국 ETF 목록 추가 (수익률 ~9.4%)
+
+### Changed
+- 미국 ETF 6종 배당 수익률을 최신 TTM 기준으로 갱신 — SCHD 3.4→3.3% · JEPI 8.8→8.1% · JEPQ 10.5→10.1% · SPYI 12.0→11.8% · QQQI 13.5% (유지)
+- SOL배당다우 수익률 3.5→3.8% 갱신
+- ETF 목록(미국·국내)을 배당 수익률 오름차순으로 정렬
+
 ## [1.5.1] - 2026-05-27
 
 ### Fixed
