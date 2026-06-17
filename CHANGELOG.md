@@ -3,6 +3,12 @@
 ## [1.6.0] - 2026-06-17
 
 ### Added
+- ETF 배당 수익률(TTM) 자동 갱신 스크립트 추가 (`scripts/update_yields.py`) — 해외 ETF는 yfinance, 국내 ETF는 pykrx 로 수익률 조회 후 `etf.js` 갱신
+- 미국 ETF 실시간 수익률 조회 추가 — 페이지 로드 시 Yahoo Finance chart 엔드포인트(yfinance 동일 소스)를 브라우저에서 직접 호출하여 TTM 수익률 자동 반영, CORS 프록시 자동 fallback + localStorage 1시간 캐시
+
+## [1.5.2] - 2026-06-17
+
+### Added
 - GPIQ(Goldman Sachs Nasdaq-100 Core Premium Income ETF) 미국 ETF 목록 추가 (수익률 ~9.4%)
 
 ### Changed
