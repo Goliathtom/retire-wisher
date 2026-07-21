@@ -256,13 +256,20 @@
       align-items: center;
       gap: 8px;
       height: 56px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
+    .nav-inner::-webkit-scrollbar { display: none; }
     .nav-logo {
       font-weight: 800;
       font-size: 1rem;
       color: var(--text);
       text-decoration: none;
       margin-right: 12px;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .nav-link {
       padding: 6px 14px;
@@ -272,9 +279,17 @@
       color: var(--muted);
       text-decoration: none;
       transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .nav-link:hover { color: var(--text); background: var(--surface2); }
     .nav-link.active { color: var(--accent); background: rgba(108,140,255,0.12); }
+    .nav-mobile-label { display: none; }
+    @media (max-width: 640px) {
+      .nav-logo .logo-text { display: none; }
+      .nav-desktop-label { display: none; }
+      .nav-mobile-label { display: inline; }
+    }
 
     footer {
       text-align: center;
@@ -310,9 +325,9 @@
 <!-- 네비게이션 -->
 <nav class="site-nav">
   <div class="nav-inner">
-    <span class="nav-logo">🌅 은퇴바라기</span>
-    <a href="index.html" class="nav-link active">소득 계산기</a>
-    <a href="etf.html" class="nav-link">ETF 배당 계산기</a>
+    <span class="nav-logo">🌅<span class="logo-text"> 은퇴바라기</span></span>
+    <a href="index.html" class="nav-link active"><span class="nav-desktop-label">소득 계산기</span><span class="nav-mobile-label">소득계산</span></a>
+    <a href="etf.html" class="nav-link"><span class="nav-desktop-label">ETF 배당 계산기</span><span class="nav-mobile-label">ETF계산</span></a>
     <a href="fear-greed.html" class="nav-link">Fear & Greed</a>
     <a href="fx.html" class="nav-link">환율</a>
   </div>
