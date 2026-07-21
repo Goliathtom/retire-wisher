@@ -1,11 +1,11 @@
 /* ===================== 실시간 환율 + 3개월 추이 (Yahoo Finance) ===================== */
 /* Yahoo Finance chart 엔드포인트에서 원/달러·원/유로·원/엔 시세를 조회한다.
    range=3mo 응답 하나로 현재값·전일 대비 변동·3개월 일별 종가 시계열을 모두 얻는다.
-   etf.js / fear-greed.js 와 동일한 CORS 프록시 fallback + localStorage 1시간 캐시 패턴. */
+   etf.js / fear-greed.js 와 동일한 CORS 프록시 fallback + localStorage 캐시 패턴(TTL 5분). */
 
 const FX_PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
 const FX_CACHE_KEY = 'fx_rates_cache_v3';
-const FX_CACHE_TTL = 60 * 60 * 1000; // 1시간
+const FX_CACHE_TTL = 5 * 60 * 1000; // 5분
 const FX_CHART_URL = (sym) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=3mo&interval=1d`;
 
@@ -146,7 +146,7 @@ async function loadFxRates() {
     if (cached && Date.now() - cached.ts < FX_CACHE_TTL) {
       CURRENCIES.forEach((cur) => renderCurrency(cur, cached.series[cur.code]));
       const t = new Date(cached.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-      setFxStatus(`💾 캐시 사용 중 (${t} 기준, 1시간 유효)`);
+      setFxStatus(`💾 캐시 사용 중 (${t} 기준, 5분 유효)`);
       return;
     }
   } catch (e) {}
