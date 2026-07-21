@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>은퇴바라기 — 실시간 환율</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3248;
+      --accent: #6c8cff;
+      --accent2: #a78bfa;
+      --green: #34d399;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* ── 네비게이션 ── */
+    .site-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-inner {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 56px;
+    }
+    .nav-logo {
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+      margin-right: 12px;
+    }
+    .nav-link {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.active { color: var(--accent); background: rgba(108,140,255,0.12); }
+
+    /* ── 레이아웃 ── */
+    .container { max-width: 820px; margin: 0 auto; padding: 40px 20px 0; }
+
+    .hero { text-align: center; margin-bottom: 40px; }
+    .hero-emoji { font-size: 48px; margin-bottom: 12px; }
+    .hero h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; }
+    .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
+
+    /* ── 환율 카드 ── */
+    .fx-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 640px) { .fx-grid { grid-template-columns: 1fr; } }
+
+    .fx-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .fx-card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .fx-flag { font-size: 1.8rem; line-height: 1; }
+    .fx-pair { font-size: 0.95rem; font-weight: 700; }
+    .fx-sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+    .fx-rate {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .fx-rate .won { font-size: 1rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+    .fx-rate.loading { color: var(--muted); font-size: 1.1rem; font-weight: 600; }
+
+    .fx-change {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .fx-change.up { color: var(--red); }      /* 원화 약세(환율 상승) = 빨강 */
+    .fx-change.down { color: var(--accent); } /* 원화 강세(환율 하락) = 파랑 */
+    .fx-change.flat { color: var(--muted); }
+
+    .fx-status {
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    footer {
+      max-width: 820px;
+      margin: 32px auto 0;
+      padding: 0 20px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="nav-inner">
+    <span class="nav-logo">🌅 은퇴바라기</span>
+    <a href="index.html" class="nav-link">소득 계산기</a>
+    <a href="etf.html" class="nav-link">ETF 배당 계산기</a>
+    <a href="fear-greed.html" class="nav-link">Fear &amp; Greed</a>
+    <a href="fx.html" class="nav-link active">환율</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="hero-emoji">💱</div>
+    <h1>실시간 <span>환율</span></h1>
+    <p>원/달러 · 원/유로 · 원/엔 현재 환율과 전일 대비 변동</p>
+  </div>
+
+  <div class="fx-grid">
+    <div class="fx-card">
+      <div class="fx-card-head">
+        <span class="fx-flag">🇺🇸</span>
+        <div>
+          <div class="fx-pair">원/달러 (USD)</div>
+          <div class="fx-sub">1 USD 기준</div>
+        </div>
+      </div>
+      <div class="fx-rate loading" id="rateUSD">불러오는 중…</div>
+      <div class="fx-change flat" id="changeUSD"></div>
+    </div>
+
+    <div class="fx-card">
+      <div class="fx-card-head">
+        <span class="fx-flag">🇪🇺</span>
+        <div>
+          <div class="fx-pair">원/유로 (EUR)</div>
+          <div class="fx-sub">1 EUR 기준</div>
+        </div>
+      </div>
+      <div class="fx-rate loading" id="rateEUR">불러오는 중…</div>
+      <div class="fx-change flat" id="changeEUR"></div>
+    </div>
+
+    <div class="fx-card">
+      <div class="fx-card-head">
+        <span class="fx-flag">🇯🇵</span>
+        <div>
+          <div class="fx-pair">원/엔 (JPY)</div>
+          <div class="fx-sub">100 JPY 기준</div>
+        </div>
+      </div>
+      <div class="fx-rate loading" id="rateJPY">불러오는 중…</div>
+      <div class="fx-change flat" id="changeJPY"></div>
+    </div>
+  </div>
+
+  <div class="fx-status" id="fxStatus"></div>
+</div>
+
+<footer>
+  환율은 Yahoo Finance 시세 기준이며 1시간 캐시됩니다. 매매 기준율과 다를 수 있습니다.<br>
+  <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 거래 환율과 차이가 있을 수 있습니다.</strong>
+</footer>
+
+<script src="fx.js"></script>
+</body>
+</html>

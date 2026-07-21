@@ -527,8 +527,52 @@ async function loadLiveYields() {
   setYieldStatus(`✅ 미국 ETF 실시간 수익률 적용 완료 (Yahoo Finance, TTM)${suffix} · 국내 ETF는 pykrx 스크립트 기준`);
 }
 
+/* ===================== 실시간 원/달러 환율 (Yahoo Finance) ===================== */
+/* Yahoo Finance 의 USD/KRW 심볼(KRW=X)에서 현재 환율을 조회한다.
+   실시간 수익률과 동일한 CORS 프록시 fallback + localStorage 1시간 캐시 패턴 재사용. */
+const FX_CACHE_KEY = 'usdkrw_fx_cache';
+const FX_CACHE_TTL = 60 * 60 * 1000; // 1시간
+const FX_CHART_URL =
+  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('KRW=X')}?range=1d&interval=1d`;
+
+function setFxRate(rate, ts) {
+  const el = document.getElementById('fxRate');
+  if (!el) return;
+  const won = Math.round(rate).toLocaleString('ko-KR');
+  el.textContent = `1$ = ${won}원`;
+  if (ts) el.title = `Yahoo Finance 기준 (${new Date(ts).toLocaleString('ko-KR')})`;
+}
+
+async function fetchFxRate() {
+  let json;
+  try {
+    json = await yfTryFetch(FX_CHART_URL);
+  } catch (e1) {
+    json = await yfTryFetch(YF_PROXY_URL(FX_CHART_URL)); // CORS 프록시 fallback
+  }
+  const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+  return typeof price === 'number' && price > 0 ? price : null;
+}
+
+async function loadLiveFxRate() {
+  /* 캐시 확인 */
+  try {
+    const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < FX_CACHE_TTL) {
+      setFxRate(cached.rate, cached.ts);
+      return;
+    }
+  } catch (e) {}
+
+  const rate = await fetchFxRate();
+  if (rate == null) return; // 실패 시 기본값(1,450원) 유지
+  setFxRate(rate, Date.now());
+  localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ ts: Date.now(), rate }));
+}
+
 /* ===================== 초기화 ===================== */
 renderStrategyCards();
 updateSliderLabel('investment', parseFloat(document.getElementById('investment').value) || 0);
 calculate();
 loadLiveYields();
+loadLiveFxRate();
