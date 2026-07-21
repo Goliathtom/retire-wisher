@@ -118,8 +118,20 @@ function renderCurrency(cur, series) {
   const lowIdx = ys.indexOf(Math.min(...ys));
   const highIdx = ys.indexOf(Math.max(...ys));
   rangeEl.innerHTML =
-    `<span>최저 ${wonFmt(ys[lowIdx])}${u} (${dateFmt(series[lowIdx].x)})</span>` +
-    `<span>최고 ${wonFmt(ys[highIdx])}${u} (${dateFmt(series[highIdx].x)})</span>`;
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">3개월 최고</span>` +
+        `<span class="fx-range-date">${dateFmt(series[highIdx].x)}</span>` +
+      `</div>` +
+      `<span class="fx-range-val high">${wonFmt(ys[highIdx])}${u}</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">3개월 최저</span>` +
+        `<span class="fx-range-date">${dateFmt(series[lowIdx].x)}</span>` +
+      `</div>` +
+      `<span class="fx-range-val low">${wonFmt(ys[lowIdx])}${u}</span>` +
+    `</div>`;
 }
 
 function setFxStatus(msg) {

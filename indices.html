@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>은퇴바라기 — 실시간 환율</title>
+  <title>은퇴바라기 — 주요 지수</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -90,7 +90,7 @@
     .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .hero p { margin-top: 10px; color: var(--muted); font-size: 0.95rem; }
 
-    /* ── 환율 카드 ── */
+    /* ── 지수 카드 ── */
     .fx-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -119,7 +119,6 @@
       font-weight: 800;
       letter-spacing: -0.02em;
     }
-    .fx-rate .won { font-size: 1rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
     .fx-rate.loading { color: var(--muted); font-size: 1.1rem; font-weight: 600; }
 
     .fx-change {
@@ -130,8 +129,8 @@
       align-items: center;
       gap: 6px;
     }
-    .fx-change.up { color: var(--red); }      /* 원화 약세(환율 상승) = 빨강 */
-    .fx-change.down { color: var(--accent); } /* 원화 강세(환율 하락) = 파랑 */
+    .fx-change.up { color: var(--red); }      /* 지수 상승 = 빨강 (국내 관행) */
+    .fx-change.down { color: var(--accent); } /* 지수 하락 = 파랑 */
     .fx-change.flat { color: var(--muted); }
 
     /* ── 3개월 추이 차트 ── */
@@ -145,13 +144,12 @@
     .fx-chart svg { width: 100%; height: auto; display: block; }
     .fx-chart-line { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
     .fx-chart-area { stroke: none; opacity: 0.12; }
-    .fx-chart-empty { font-size: 0.72rem; color: var(--muted); padding: 20px 0; text-align: center; }
     .fx-range {
       margin-top: 14px;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
+    @media (max-width: 640px) { .fx-range { flex-direction: column; } }
     .fx-range-item {
       flex: 1;
       background: var(--surface2);
@@ -168,7 +166,7 @@
     .fx-range-val.high { color: var(--red); }
     .fx-range-val.low { color: var(--accent); }
 
-    /* ── 달러 인덱스(넓은 카드) ── */
+    /* ── 섹션 라벨 · 국내 지수(넓은 카드) ── */
     .fx-section-label {
       margin-top: 28px;
       margin-bottom: 10px;
@@ -178,9 +176,8 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    @media (min-width: 641px) {
-      .fx-card-wide .fx-range { flex-direction: row; }
-    }
+    .fx-section-label:first-of-type { margin-top: 0; }
+    .fx-card-wide { margin-bottom: 16px; }
 
     .fx-status {
       text-align: center;
@@ -208,89 +205,88 @@
     <a href="index.html" class="nav-link"><span class="nav-desktop-label">소득 계산기</span><span class="nav-mobile-label">소득계산</span></a>
     <a href="etf.html" class="nav-link"><span class="nav-desktop-label">ETF 배당 계산기</span><span class="nav-mobile-label">ETF계산</span></a>
     <a href="fear-greed.html" class="nav-link">Fear &amp; Greed</a>
-    <a href="fx.html" class="nav-link active">환율</a>
-    <a href="indices.html" class="nav-link">지수</a>
+    <a href="fx.html" class="nav-link">환율</a>
+    <a href="indices.html" class="nav-link active">지수</a>
   </div>
 </nav>
 
 <div class="container">
   <div class="hero">
-    <div class="hero-emoji">💱</div>
-    <h1>실시간 <span>환율</span></h1>
-    <p>원/달러 · 원/유로 · 원/엔 환율과 달러 인덱스, 최근 3개월 추이</p>
+    <div class="hero-emoji">📊</div>
+    <h1>주요 <span>지수</span></h1>
+    <p>국내·미국 주요 주가지수 현재가와 전일 대비 변동, 최근 3개월 추이</p>
   </div>
 
-  <div class="fx-grid">
-    <div class="fx-card">
-      <div class="fx-card-head">
-        <span class="fx-flag">🇺🇸</span>
-        <div>
-          <div class="fx-pair">원/달러 (USD)</div>
-          <div class="fx-sub">1 USD 기준</div>
-        </div>
-      </div>
-      <div class="fx-rate loading" id="rateUSD">불러오는 중…</div>
-      <div class="fx-change flat" id="changeUSD"></div>
-      <div class="fx-chart-label">최근 3개월 추이</div>
-      <div class="fx-chart" id="chartUSD"></div>
-      <div class="fx-range" id="rangeUSD"></div>
-    </div>
-
-    <div class="fx-card">
-      <div class="fx-card-head">
-        <span class="fx-flag">🇪🇺</span>
-        <div>
-          <div class="fx-pair">원/유로 (EUR)</div>
-          <div class="fx-sub">1 EUR 기준</div>
-        </div>
-      </div>
-      <div class="fx-rate loading" id="rateEUR">불러오는 중…</div>
-      <div class="fx-change flat" id="changeEUR"></div>
-      <div class="fx-chart-label">최근 3개월 추이</div>
-      <div class="fx-chart" id="chartEUR"></div>
-      <div class="fx-range" id="rangeEUR"></div>
-    </div>
-
-    <div class="fx-card">
-      <div class="fx-card-head">
-        <span class="fx-flag">🇯🇵</span>
-        <div>
-          <div class="fx-pair">원/엔 (JPY)</div>
-          <div class="fx-sub">100 JPY 기준</div>
-        </div>
-      </div>
-      <div class="fx-rate loading" id="rateJPY">불러오는 중…</div>
-      <div class="fx-change flat" id="changeJPY"></div>
-      <div class="fx-chart-label">최근 3개월 추이</div>
-      <div class="fx-chart" id="chartJPY"></div>
-      <div class="fx-range" id="rangeJPY"></div>
-    </div>
-  </div>
-
-  <div class="fx-section-label">달러 인덱스</div>
+  <div class="fx-section-label">국내 지수</div>
   <div class="fx-card fx-card-wide">
     <div class="fx-card-head">
-      <span class="fx-flag">💵</span>
+      <span class="fx-flag">🇰🇷</span>
       <div>
-        <div class="fx-pair">달러 인덱스 (DXY)</div>
-        <div class="fx-sub">주요 6개 통화 대비 미 달러 가치 · 상승 = 달러 강세</div>
+        <div class="fx-pair">코스피 (KOSPI)</div>
+        <div class="fx-sub">코스피 종합주가지수</div>
       </div>
     </div>
-    <div class="fx-rate loading" id="rateDXY">불러오는 중…</div>
-    <div class="fx-change flat" id="changeDXY"></div>
+    <div class="fx-rate loading" id="rateKOSPI">불러오는 중…</div>
+    <div class="fx-change flat" id="changeKOSPI"></div>
     <div class="fx-chart-label">최근 3개월 추이</div>
-    <div class="fx-chart" id="chartDXY"></div>
-    <div class="fx-range" id="rangeDXY"></div>
+    <div class="fx-chart" id="chartKOSPI"></div>
+    <div class="fx-range" id="rangeKOSPI"></div>
   </div>
 
-  <div class="fx-status" id="fxStatus"></div>
+  <div class="fx-section-label">미국 지수</div>
+  <div class="fx-card fx-card-wide">
+    <div class="fx-card-head">
+      <span class="fx-flag">🇺🇸</span>
+      <div>
+        <div class="fx-pair">다우존스 (DJI)</div>
+        <div class="fx-sub">다우존스 산업평균지수</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateDJI">불러오는 중…</div>
+    <div class="fx-change flat" id="changeDJI"></div>
+    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="fx-chart" id="chartDJI"></div>
+    <div class="fx-range" id="rangeDJI"></div>
+  </div>
+
+  <div class="fx-card fx-card-wide">
+    <div class="fx-card-head">
+      <span class="fx-flag">🇺🇸</span>
+      <div>
+        <div class="fx-pair">나스닥 (IXIC)</div>
+        <div class="fx-sub">나스닥 종합지수</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateIXIC">불러오는 중…</div>
+    <div class="fx-change flat" id="changeIXIC"></div>
+    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="fx-chart" id="chartIXIC"></div>
+    <div class="fx-range" id="rangeIXIC"></div>
+  </div>
+
+  <div class="fx-card fx-card-wide">
+    <div class="fx-card-head">
+      <span class="fx-flag">🇺🇸</span>
+      <div>
+        <div class="fx-pair">S&amp;P 500 (GSPC)</div>
+        <div class="fx-sub">미국 대형주 500</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateGSPC">불러오는 중…</div>
+    <div class="fx-change flat" id="changeGSPC"></div>
+    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="fx-chart" id="chartGSPC"></div>
+    <div class="fx-range" id="rangeGSPC"></div>
+  </div>
+
+  <div class="fx-status" id="idxStatus"></div>
 </div>
 
 <footer>
-  환율은 Yahoo Finance 시세 기준이며 1시간 캐시됩니다. 매매 기준율과 다를 수 있습니다.<br>
-  <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 거래 환율과 차이가 있을 수 있습니다.</strong>
+  지수는 Yahoo Finance 시세 기준이며 1시간 캐시됩니다. 실시간과 다소 차이가 있을 수 있습니다.<br>
+  <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 시세와 차이가 있을 수 있습니다.</strong>
 </footer>
 
-<script src="fx.js"></script>
+<script src="indices.js"></script>
 </body>
 </html>
