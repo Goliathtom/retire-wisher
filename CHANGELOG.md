@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.0] - 2026-07-21
+
+### Added
+- 실시간 환율 페이지 추가 (`fx.html` / `fx.js`) — 원/달러·원/유로·원/엔 현재 환율과 전일 대비 변동(금액·%)을 카드로 표시, 엔화는 100엔 기준. Yahoo Finance chart 엔드포인트 조회 + CORS 프록시 자동 fallback + localStorage 1시간 캐시
+- 상단 네비게이션에 `환율` 메뉴 추가 (`index.html` · `etf.html` · `fear-greed.html` · `fx.html`)
+
+### Changed
+- ETF 배당 계산기 footer의 원/달러 환율을 하드코딩(1,450원)에서 실시간 조회로 전환 (`etf.html` / `etf.js`) — 조회 실패 시 기본값 유지
+
 ## [1.6.0] - 2026-06-17
 
 ### Added
