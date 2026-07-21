@@ -1,11 +1,11 @@
 /* ===================== 주요 주가지수 + 3개월 추이 (Yahoo Finance) ===================== */
 /* 코스피·다우존스·나스닥·S&P 500 지수를 조회한다.
    range=3mo 응답 하나로 현재값·전일 대비 변동·3개월 일별 종가 시계열을 모두 얻는다.
-   fx.js 와 동일한 CORS 프록시 fallback + localStorage 1시간 캐시 패턴. */
+   fx.js 와 동일한 CORS 프록시 fallback + localStorage 캐시 패턴(TTL 5분). */
 
 const IDX_PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
 const IDX_CACHE_KEY = 'indices_cache_v1';
-const IDX_CACHE_TTL = 60 * 60 * 1000; // 1시간
+const IDX_CACHE_TTL = 5 * 60 * 1000; // 5분
 const IDX_CHART_URL = (sym) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=3mo&interval=1d`;
 
@@ -146,7 +146,7 @@ async function loadIndices() {
     if (cached && Date.now() - cached.ts < IDX_CACHE_TTL) {
       ASSETS.forEach((asset) => renderAsset(asset, cached.series[asset.code]));
       const t = new Date(cached.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-      setIdxStatus(`💾 캐시 사용 중 (${t} 기준, 1시간 유효)`);
+      setIdxStatus(`💾 캐시 사용 중 (${t} 기준, 5분 유효)`);
       return;
     }
   } catch (e) {}
