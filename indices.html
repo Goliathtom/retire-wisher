@@ -144,6 +144,8 @@
     .fx-chart svg { width: 100%; height: auto; display: block; }
     .fx-chart-line { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
     .fx-chart-area { stroke: none; opacity: 0.12; }
+    .fx-axis-label { fill: var(--muted); font-size: 10px; }
+    .fx-grid-line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 3; }
     .fx-range {
       margin-top: 14px;
       display: flex;
@@ -235,7 +237,7 @@
   <div class="hero">
     <div class="hero-emoji">📊</div>
     <h1>주요 <span>지수</span></h1>
-    <p>지수별로 기간(1일·1주·1개월·3개월·1년)을 선택해 현재가·변동·추이를 확인하세요</p>
+    <p>지수별로 기간(1일·1주·1개월·3개월·1년)과 캔들(일봉·주봉·월봉)을 선택해 확인하세요</p>
   </div>
 
   <div class="fx-section-label">국내 지수</div>
@@ -303,7 +305,8 @@
 
 <footer>
   지수는 Yahoo Finance 시세 기준이며 5분 캐시됩니다. 실시간과 다소 차이가 있을 수 있습니다.<br>
-  <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 시세와 차이가 있을 수 있습니다.</strong>
+  <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 시세와 차이가 있을 수 있습니다.</strong><br>
+  <span style="opacity: 0.7;">© 2026 은퇴바라기 (Goliathtom) · MIT License</span>
 </footer>
 
 <script src="indices.js"></script>
