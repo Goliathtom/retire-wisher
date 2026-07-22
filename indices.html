@@ -166,6 +166,27 @@
     .fx-range-val.high { color: var(--red); }
     .fx-range-val.low { color: var(--accent); }
 
+    /* ── 카드별 기간 토글 ── */
+    .card-periods {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 16px 0 4px;
+    }
+    .card-period-btn {
+      padding: 4px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+    .card-period-btn:hover { color: var(--text); border-color: var(--accent); }
+    .card-period-btn.active { background: rgba(108,140,255,0.15); border-color: var(--accent); color: var(--accent); }
+
     /* ── 섹션 라벨 · 국내 지수(넓은 카드) ── */
     .fx-section-label {
       margin-top: 28px;
@@ -214,7 +235,7 @@
   <div class="hero">
     <div class="hero-emoji">📊</div>
     <h1>주요 <span>지수</span></h1>
-    <p>국내·미국 주요 주가지수 현재가와 전일 대비 변동, 최근 3개월 추이</p>
+    <p>지수별로 기간(1일·1주·1개월·3개월·1년)을 선택해 현재가·변동·추이를 확인하세요</p>
   </div>
 
   <div class="fx-section-label">국내 지수</div>
@@ -228,7 +249,7 @@
     </div>
     <div class="fx-rate loading" id="rateKOSPI">불러오는 중…</div>
     <div class="fx-change flat" id="changeKOSPI"></div>
-    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="card-periods" id="periodsKOSPI"></div>
     <div class="fx-chart" id="chartKOSPI"></div>
     <div class="fx-range" id="rangeKOSPI"></div>
   </div>
@@ -244,7 +265,7 @@
     </div>
     <div class="fx-rate loading" id="rateDJI">불러오는 중…</div>
     <div class="fx-change flat" id="changeDJI"></div>
-    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="card-periods" id="periodsDJI"></div>
     <div class="fx-chart" id="chartDJI"></div>
     <div class="fx-range" id="rangeDJI"></div>
   </div>
@@ -259,7 +280,7 @@
     </div>
     <div class="fx-rate loading" id="rateIXIC">불러오는 중…</div>
     <div class="fx-change flat" id="changeIXIC"></div>
-    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="card-periods" id="periodsIXIC"></div>
     <div class="fx-chart" id="chartIXIC"></div>
     <div class="fx-range" id="rangeIXIC"></div>
   </div>
@@ -274,12 +295,10 @@
     </div>
     <div class="fx-rate loading" id="rateGSPC">불러오는 중…</div>
     <div class="fx-change flat" id="changeGSPC"></div>
-    <div class="fx-chart-label">최근 3개월 추이</div>
+    <div class="card-periods" id="periodsGSPC"></div>
     <div class="fx-chart" id="chartGSPC"></div>
     <div class="fx-range" id="rangeGSPC"></div>
   </div>
-
-  <div class="fx-status" id="idxStatus"></div>
 </div>
 
 <footer>
