@@ -33,16 +33,16 @@ const CANDLE_DOWN = '#6c8cff'; // 음봉(하락) = 파랑
 const ASSETS = [
   { code: 'KOSPI', symbol: '^KS11', color: '#f87171', period: DEFAULT_PERIOD,
     rateEl: 'rateKOSPI', changeEl: 'changeKOSPI', chartEl: 'chartKOSPI', rangeEl: 'rangeKOSPI', periodsEl: 'periodsKOSPI',
-    chartW: 820, chartH: 130 },
+    chartW: 820, chartH: 240 },
   { code: 'DJI',  symbol: '^DJI',  color: '#6c8cff', period: DEFAULT_PERIOD,
     rateEl: 'rateDJI',  changeEl: 'changeDJI',  chartEl: 'chartDJI',  rangeEl: 'rangeDJI', periodsEl: 'periodsDJI',
-    chartW: 820, chartH: 130 },
+    chartW: 820, chartH: 240 },
   { code: 'IXIC', symbol: '^IXIC', color: '#a78bfa', period: DEFAULT_PERIOD,
     rateEl: 'rateIXIC', changeEl: 'changeIXIC', chartEl: 'chartIXIC', rangeEl: 'rangeIXIC', periodsEl: 'periodsIXIC',
-    chartW: 820, chartH: 130 },
+    chartW: 820, chartH: 240 },
   { code: 'GSPC', symbol: '^GSPC', color: '#34d399', period: DEFAULT_PERIOD,
     rateEl: 'rateGSPC', changeEl: 'changeGSPC', chartEl: 'chartGSPC', rangeEl: 'rangeGSPC', periodsEl: 'periodsGSPC',
-    chartW: 820, chartH: 130 },
+    chartW: 820, chartH: 240 },
 ];
 
 async function idxTryFetch(url) {
@@ -110,28 +110,58 @@ async function fetchIdxData(symbol, period) {
 const numFmt = (n) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 const timeFmt = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getFullYear()).slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const axisValFmt = (v) => v.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
+
+/* 차트 축(y축 값 그리드 + x축 라벨) SVG. xTicks: [{x, label, anchor}...] */
+function buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks) {
+  let g = '';
+  const yN = 4;
+  for (let i = 0; i < yN; i++) {
+    const v = yMin + ((yMax - yMin) * i) / (yN - 1);
+    const y = yScale(v);
+    g += `<line class="fx-grid-line" x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${(W - PAD_R).toFixed(1)}" y2="${y.toFixed(1)}" />`;
+    g += `<text class="fx-axis-label" x="${PAD_L - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${axisValFmt(v)}</text>`;
+  }
+  const yBase = PAD_T + plotH + 15;
+  xTicks.forEach((t) => {
+    g += `<text class="fx-axis-label" x="${t.x.toFixed(1)}" y="${yBase.toFixed(1)}" text-anchor="${t.anchor}">${t.label}</text>`;
+  });
+  return g;
+}
 
 /* 종가 시계열 -> 인라인 SVG 라인+영역 차트. */
-function buildChartSVG(series, color, W = 260, H = 90) {
-  const PAD = 6;
+const CHART_MARGIN = { L: 46, R: 10, T: 10, B: 22 };
+
+function buildChartSVG(series, color, W = 260, H = 90, xFmt = ymdFmt) {
+  const { L: PAD_L, R: PAD_R, T: PAD_T, B: PAD_B } = CHART_MARGIN;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
   const xs = series.map((p) => p.x);
   const ys = series.map((p) => p.y);
   const xMin = Math.min(...xs), xMax = Math.max(...xs);
   const yMin = Math.min(...ys), yMax = Math.max(...ys);
-  const yPad = (yMax - yMin) * 0.12 || 1;
+  const yPad = (yMax - yMin) * 0.08 || 1;
   const lo = yMin - yPad, hi = yMax + yPad;
 
-  const xScale = (x) => PAD + ((x - xMin) / (xMax - xMin || 1)) * (W - 2 * PAD);
-  const yScale = (y) => PAD + (1 - (y - lo) / (hi - lo || 1)) * (H - 2 * PAD);
+  const xScale = (x) => PAD_L + ((x - xMin) / (xMax - xMin || 1)) * plotW;
+  const yScale = (y) => PAD_T + (1 - (y - lo) / (hi - lo || 1)) * plotH;
 
   const line = series
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x).toFixed(1)} ${yScale(p.y).toFixed(1)}`)
     .join(' ');
-  const area = `${line} L ${xScale(xMax).toFixed(1)} ${H - PAD} L ${xScale(xMin).toFixed(1)} ${H - PAD} Z`;
+  const bottom = (PAD_T + plotH).toFixed(1);
+  const area = `${line} L ${xScale(xMax).toFixed(1)} ${bottom} L ${xScale(xMin).toFixed(1)} ${bottom} Z`;
   const last = series[series.length - 1];
+
+  const xN = 4;
+  const xTicks = Array.from({ length: xN }, (_, i) => {
+    const t = xMin + ((xMax - xMin) * i) / (xN - 1);
+    return { x: xScale(t), label: xFmt(t), anchor: i === 0 ? 'start' : i === xN - 1 ? 'end' : 'middle' };
+  });
 
   return `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="기간 지수 추이">
+      ${buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks)}
       <path class="fx-chart-area" d="${area}" fill="${color}" />
       <path class="fx-chart-line" d="${line}" stroke="${color}" />
       <circle cx="${xScale(last.x).toFixed(1)}" cy="${yScale(last.y).toFixed(1)}" r="2.5" fill="${color}" />
@@ -139,30 +169,38 @@ function buildChartSVG(series, color, W = 260, H = 90) {
 }
 
 /* OHLC 시계열 -> 인라인 SVG 캔들 차트 (양봉=빨강, 음봉=파랑). */
-function buildCandleSVG(series, W = 260, H = 90) {
-  const PAD = 6;
+function buildCandleSVG(series, W = 260, H = 90, xFmt = ymdFmt) {
+  const { L: PAD_L, R: PAD_R, T: PAD_T, B: PAD_B } = CHART_MARGIN;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
   const n = series.length;
   const yMin = Math.min(...series.map((b) => b.l));
   const yMax = Math.max(...series.map((b) => b.h));
   const yPad = (yMax - yMin) * 0.08 || 1;
   const lo = yMin - yPad, hi = yMax + yPad;
-  const yScale = (y) => PAD + (1 - (y - lo) / (hi - lo || 1)) * (H - 2 * PAD);
-  const slot = (W - 2 * PAD) / n;
+  const yScale = (y) => PAD_T + (1 - (y - lo) / (hi - lo || 1)) * plotH;
+  const slot = plotW / n;
   const bodyW = Math.max(1, slot * 0.62);
+  const cx = (i) => PAD_L + slot * (i + 0.5);
 
   const bars = series.map((b, i) => {
-    const cx = PAD + slot * (i + 0.5);
+    const x = cx(i);
     const color = b.c >= b.o ? CANDLE_UP : CANDLE_DOWN;
     const yHigh = yScale(b.h), yLow = yScale(b.l);
     const top = Math.min(yScale(b.o), yScale(b.c));
     const bodyH = Math.max(1, Math.abs(yScale(b.o) - yScale(b.c)));
     return (
-      `<line x1="${cx.toFixed(1)}" y1="${yHigh.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yLow.toFixed(1)}" stroke="${color}" stroke-width="1" vector-effect="non-scaling-stroke" />` +
-      `<rect x="${(cx - bodyW / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bodyW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" />`
+      `<line x1="${x.toFixed(1)}" y1="${yHigh.toFixed(1)}" x2="${x.toFixed(1)}" y2="${yLow.toFixed(1)}" stroke="${color}" stroke-width="1" vector-effect="non-scaling-stroke" />` +
+      `<rect x="${(x - bodyW / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bodyW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" />`
     );
   }).join('');
 
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="캔들 차트">${bars}</svg>`;
+  const xN = Math.min(4, n);
+  const xTicks = Array.from({ length: xN }, (_, i) => {
+    const idx = Math.round(((n - 1) * i) / (xN - 1 || 1));
+    return { x: cx(idx), label: xFmt(series[idx].x), anchor: i === 0 ? 'start' : i === xN - 1 ? 'end' : 'middle' };
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="캔들 차트">${buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks)}${bars}</svg>`;
 }
 
 function renderAsset(asset, data) {
@@ -193,9 +231,10 @@ function renderAsset(asset, data) {
   changeEl.textContent = `${arrow} ${sign}${numFmt(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(2)}%) · ${p.changeLabel}`;
 
   /* 차트 (캔들 / 선) */
+  const xFmt = p.intraday ? timeFmt : ymdFmt;
   chartEl.innerHTML = isCandle
-    ? buildCandleSVG(series, asset.chartW, asset.chartH)
-    : buildChartSVG(series, DIR_COLORS[dir], asset.chartW, asset.chartH);
+    ? buildCandleSVG(series, asset.chartW, asset.chartH, xFmt)
+    : buildChartSVG(series, DIR_COLORS[dir], asset.chartW, asset.chartH, xFmt);
 
   /* 기간 최저·최고 (캔들은 봉의 고가/저가, 선은 종가 기준) */
   const highVals = series.map((b) => (isCandle ? b.h : b.c));
