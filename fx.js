@@ -59,6 +59,9 @@ const wonFmt = (n) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maxi
 const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 
 /* 3개월 종가 시계열 -> 인라인 SVG 라인+영역 차트. */
+/* 상승하락 방향별 그래프 색상: 상승=빨강 · 하락=파랑 · 보합=회색 (.fx-change 색과 통일) */
+const DIR_COLORS = { up: '#f87171', down: '#6c8cff', flat: '#94a3b8' };
+
 function buildChartSVG(series, color, W = 260, H = 90) {
   const PAD = 6;
   const xs = series.map((p) => p.x);
@@ -111,7 +114,7 @@ function renderCurrency(cur, series) {
   changeEl.textContent = `${arrow} ${sign}${wonFmt(Math.abs(diff))}${u} (${sign}${Math.abs(pct).toFixed(2)}%) · 전일 대비`;
 
   /* 3개월 차트 */
-  chartEl.innerHTML = buildChartSVG(series, cur.color, cur.chartW, cur.chartH);
+  chartEl.innerHTML = buildChartSVG(series, DIR_COLORS[dir], cur.chartW, cur.chartH);
 
   /* 3개월 최저·최고 */
   const ys = series.map((p) => p.y * m);

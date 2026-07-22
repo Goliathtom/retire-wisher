@@ -24,6 +24,8 @@ const PERIODS = {
   'M':  { label: '월봉',  range: '5y',  interval: '1mo', type: 'candle', changeMode: 'bar',    changeLabel: '전월 대비',   rangeLabel: '5년',   intraday: false },
 };
 const DEFAULT_PERIOD = '1D';
+/* 상승하락 방향별 선 그래프 색상: 상승=빨강 · 하락=파랑 · 보합=회색 (.fx-change 색과 통일) */
+const DIR_COLORS = { up: '#f87171', down: '#6c8cff', flat: '#94a3b8' };
 const CANDLE_UP = '#f87171';   // 양봉(상승) = 빨강
 const CANDLE_DOWN = '#6c8cff'; // 음봉(하락) = 파랑
 
@@ -193,7 +195,7 @@ function renderAsset(asset, data) {
   /* 차트 (캔들 / 선) */
   chartEl.innerHTML = isCandle
     ? buildCandleSVG(series, asset.chartW, asset.chartH)
-    : buildChartSVG(series, asset.color, asset.chartW, asset.chartH);
+    : buildChartSVG(series, DIR_COLORS[dir], asset.chartW, asset.chartH);
 
   /* 기간 최저·최고 (캔들은 봉의 고가/저가, 선은 종가 기준) */
   const highVals = series.map((b) => (isCandle ? b.h : b.c));
