@@ -43,6 +43,15 @@ const ASSETS = [
   { code: 'GSPC', symbol: '^GSPC', color: '#34d399', period: DEFAULT_PERIOD,
     rateEl: 'rateGSPC', changeEl: 'changeGSPC', chartEl: 'chartGSPC', rangeEl: 'rangeGSPC', periodsEl: 'periodsGSPC',
     chartW: 820, chartH: 240 },
+  { code: 'GOLD', symbol: 'GC=F', color: '#fbbf24', period: DEFAULT_PERIOD,
+    rateEl: 'rateGOLD', changeEl: 'changeGOLD', chartEl: 'chartGOLD', rangeEl: 'rangeGOLD', periodsEl: 'periodsGOLD',
+    chartW: 820, chartH: 240 },
+  { code: 'WTI',  symbol: 'CL=F', color: '#f59e0b', period: DEFAULT_PERIOD,
+    rateEl: 'rateWTI', changeEl: 'changeWTI', chartEl: 'chartWTI', rangeEl: 'rangeWTI', periodsEl: 'periodsWTI',
+    chartW: 820, chartH: 240 },
+  { code: 'BRENT', symbol: 'BZ=F', color: '#38bdf8', period: DEFAULT_PERIOD,
+    rateEl: 'rateBRENT', changeEl: 'changeBRENT', chartEl: 'chartBRENT', rangeEl: 'rangeBRENT', periodsEl: 'periodsBRENT',
+    chartW: 820, chartH: 240 },
 ];
 
 async function idxTryFetch(url) {
