@@ -293,6 +293,38 @@
       transition: background 0.2s;
     }
     .custom-action-btn:hover { background: rgba(108,140,255,0.22); }
+    .custom-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .custom-action-btn:disabled:hover { background: rgba(108,140,255,0.1); }
+    .custom-action-btn.danger {
+      color: var(--red);
+      border-color: rgba(248,113,113,0.3);
+      background: rgba(248,113,113,0.08);
+    }
+    .custom-action-btn.danger:hover { background: rgba(248,113,113,0.2); }
+
+    /* ── 나만의 구성 저장 슬롯 ── */
+    .preset-slot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .preset-info { flex: 1; min-width: 0; }
+    .preset-name { font-size: 0.82rem; font-weight: 700; }
+    .preset-desc {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .preset-empty-text { flex: 1; font-size: 0.78rem; color: var(--muted); }
+    .preset-btns { display: flex; gap: 6px; flex-shrink: 0; }
 
     .custom-etf-row {
       display: grid;
@@ -492,12 +524,12 @@
     <div class="card-title">💰 총 투자금액</div>
     <div class="input-wrap">
       <input type="number" id="investment" min="0" max="1500000000" step="1000000" value="50000000"
-             oninput="syncSlider('investment')" />
+             autocomplete="off" oninput="syncSlider('investment')" />
       <span class="input-unit">원</span>
     </div>
     <div class="slider-wrap">
       <input type="range" id="investmentRange" min="0" max="1500000000" step="1000000" value="50000000"
-             oninput="syncInput('investment')" />
+             autocomplete="off" oninput="syncInput('investment')" />
       <span class="slider-label" id="investmentLabel">5,000만원</span>
     </div>
   </div>
@@ -526,6 +558,11 @@
         <span class="custom-total-text under" id="customTotalText">0%</span>
       </div>
       <div class="custom-warning" id="customWarning" style="display:none;"></div>
+
+      <div class="custom-builder-header" style="margin-top: 20px;">
+        <span class="custom-builder-title">💾 나만의 구성 (최대 3개)</span>
+      </div>
+      <div id="presetSlots"></div>
     </div>
   </div>
 

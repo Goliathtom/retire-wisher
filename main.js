@@ -359,16 +359,35 @@ function calculate() {
   });
 }
 
+/* ===================== 로컬 저장 (연봉 · 배당이자소득) ===================== */
+const INPUT_STORE_KEYS = { salary: 'income_salary', dividend: 'income_dividend' };
+
+function loadSavedInputs() {
+  Object.keys(INPUT_STORE_KEYS).forEach((id) => {
+    const saved = parseFloat(localStorage.getItem(INPUT_STORE_KEYS[id]));
+    if (!isFinite(saved) || saved < 0) return;
+    document.getElementById(id).value = saved;
+    document.getElementById(id + 'Range').value = saved;
+  });
+}
+
+function saveInput(id) {
+  if (!INPUT_STORE_KEYS[id]) return;
+  localStorage.setItem(INPUT_STORE_KEYS[id], parseFloat(document.getElementById(id).value) || 0);
+}
+
 /* ===================== 슬라이더 동기화 ===================== */
 function syncSlider(id) {
   const val = parseFloat(document.getElementById(id).value) || 0;
   document.getElementById(id + 'Range').value = val;
   updateSliderLabel(id, val);
+  saveInput(id);
 }
 function syncInput(id) {
   const val = parseFloat(document.getElementById(id + 'Range').value) || 0;
   document.getElementById(id).value = val;
   updateSliderLabel(id, val);
+  saveInput(id);
 }
 function updateSliderLabel(id, val) {
   document.getElementById(id + 'Label').textContent = fmtShort(val);
@@ -415,6 +434,16 @@ function exportImage() {
 
 /* ===================== 초기화 ===================== */
 renderTaxTable();
+loadSavedInputs();
 syncSlider('salary');
 syncSlider('dividend');
 calculate();
+
+/* bfcache 복원 시(스크립트 재실행 없음) 저장된 입력값 재적용 */
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  loadSavedInputs();
+  syncSlider('salary');
+  syncSlider('dividend');
+  calculate();
+});

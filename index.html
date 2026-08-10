@@ -349,12 +349,12 @@
     <div class="input-group">
       <label>연봉 (근로소득) <span class="sub">세전 총급여 기준</span></label>
       <div class="input-wrap">
-        <input type="number" id="salary" min="0" step="100" value="60000000" oninput="syncSlider('salary'); calculate()" />
+        <input type="number" id="salary" min="0" step="100" value="60000000" autocomplete="off" oninput="syncSlider('salary'); calculate()" />
         <span class="input-unit">원</span>
       </div>
       <div class="slider-wrap">
         <input type="range" id="salaryRange" min="0" max="500000000" step="1000000" value="60000000"
-               oninput="syncInput('salary'); calculate()" />
+               autocomplete="off" oninput="syncInput('salary'); calculate()" />
         <span class="slider-label" id="salaryLabel">6,000만원</span>
       </div>
     </div>
@@ -362,12 +362,12 @@
     <div class="input-group">
       <label>희망 연간 배당·이자소득 <span class="sub">금융소득 세전 기준</span></label>
       <div class="input-wrap">
-        <input type="number" id="dividend" min="0" step="100" value="24000000" oninput="syncSlider('dividend'); calculate()" />
+        <input type="number" id="dividend" min="0" step="100" value="24000000" autocomplete="off" oninput="syncSlider('dividend'); calculate()" />
         <span class="input-unit">원</span>
       </div>
       <div class="slider-wrap">
         <input type="range" id="dividendRange" min="0" max="300000000" step="500000" value="24000000"
-               oninput="syncInput('dividend'); calculate()" />
+               autocomplete="off" oninput="syncInput('dividend'); calculate()" />
         <span class="slider-label" id="dividendLabel">2,400만원</span>
       </div>
     </div>
