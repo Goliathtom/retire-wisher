@@ -257,6 +257,8 @@ function renderCustomBuilder() {
   const keys      = currentCountry === 'us' ? CUSTOM_ETFS_US : CUSTOM_ETFS_KR;
   const allocs    = customAllocations[currentCountry];
 
+  renderPresetSlots();
+
   if (container.dataset.country === currentCountry) {
     updateCustomTotalUI();
     return; // 이미 렌더됨
@@ -303,6 +305,7 @@ function syncCustomAlloc(key, rawVal, source) {
   }
 
   updateCustomTotalUI();
+  renderPresetSlots(); // 저장 버튼 활성 상태 갱신
   const total = getCustomTotal();
   if (total === 100) calculate();
   else document.getElementById('resultSection').style.display = 'none';
@@ -346,17 +349,137 @@ function distributeEvenly() {
   calculate();
 }
 
+/* ===================== 로컬 저장 (투자금액 · 나만의 구성) ===================== */
+const INVEST_STORE_KEY = 'etf_investment';
+const PRESET_STORE_KEY = 'etf_custom_presets';
+const PRESET_SLOTS = 3;
+
+function loadSavedInvestment() {
+  const saved = parseFloat(localStorage.getItem(INVEST_STORE_KEY));
+  if (!isFinite(saved) || saved < 0) return;
+  const input = document.getElementById('investment');
+  const val = Math.min(saved, parseFloat(input.max));
+  input.value = val;
+  document.getElementById('investmentRange').value = val;
+}
+
+function saveInvestment() {
+  localStorage.setItem(INVEST_STORE_KEY, parseFloat(document.getElementById('investment').value) || 0);
+}
+
+function loadPresets() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(PRESET_STORE_KEY) || '[]');
+    return Array.isArray(arr) ? arr.slice(0, PRESET_SLOTS) : [];
+  } catch (e) { return []; }
+}
+
+function storePresets(presets) {
+  localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(presets));
+}
+
+function presetSummary(p) {
+  return Object.keys(p.allocs)
+    .filter(k => p.allocs[k] > 0)
+    .map(k => `${k} ${p.allocs[k]}%`)
+    .join(' · ');
+}
+
+function presetYieldPct(p) {
+  const y = Object.keys(p.allocs).reduce((s, k) => s + (p.allocs[k] / 100) * (ETF_DATA[k]?.yield || 0), 0);
+  return (y * 100).toFixed(1) + '%';
+}
+
+function renderPresetSlots() {
+  const container = document.getElementById('presetSlots');
+  if (!container) return;
+  const presets = loadPresets();
+  const canSave = getCustomTotal() === 100;
+
+  container.innerHTML = '';
+  for (let i = 0; i < PRESET_SLOTS; i++) {
+    const p = presets[i];
+    const slot = document.createElement('div');
+    slot.className = 'preset-slot';
+    if (p) {
+      const flag = p.country === 'us' ? '🇺🇸' : '🇰🇷';
+      slot.innerHTML = `
+        <div class="preset-info">
+          <div class="preset-name">${flag} 구성 ${i + 1} · 수익률 ${presetYieldPct(p)}</div>
+          <div class="preset-desc">${presetSummary(p)}</div>
+        </div>
+        <div class="preset-btns">
+          <button class="custom-action-btn" onclick="loadPresetFromSlot(${i})">불러오기</button>
+          <button class="custom-action-btn" onclick="savePresetToSlot(${i})" ${canSave ? '' : 'disabled title="비율 합계가 100%일 때 저장할 수 있습니다"'}>덮어쓰기</button>
+          <button class="custom-action-btn danger" onclick="deletePreset(${i})">삭제</button>
+        </div>
+      `;
+    } else {
+      slot.innerHTML = `
+        <span class="preset-empty-text">빈 슬롯 ${i + 1}</span>
+        <div class="preset-btns">
+          <button class="custom-action-btn" onclick="savePresetToSlot(${i})" ${canSave ? '' : 'disabled title="비율 합계가 100%일 때 저장할 수 있습니다"'}>현재 구성 저장</button>
+        </div>
+      `;
+    }
+    container.appendChild(slot);
+  }
+}
+
+function savePresetToSlot(idx) {
+  if (getCustomTotal() !== 100) return;
+  const presets = loadPresets();
+  presets[idx] = {
+    country: currentCountry,
+    allocs: { ...customAllocations[currentCountry] },
+    savedAt: Date.now(),
+  };
+  storePresets(presets);
+  renderPresetSlots();
+}
+
+function loadPresetFromSlot(idx) {
+  const p = loadPresets()[idx];
+  if (!p) return;
+
+  if (p.country !== currentCountry) {
+    currentCountry = p.country;
+    document.getElementById('btn-us').classList.toggle('active', p.country === 'us');
+    document.getElementById('btn-kr').classList.toggle('active', p.country === 'kr');
+    renderStrategyCards();
+  }
+
+  Object.keys(customAllocations[p.country]).forEach(k => {
+    customAllocations[p.country][k] = p.allocs[k] || 0;
+  });
+
+  const radio = document.getElementById('strategy_custom');
+  if (radio) radio.checked = true;
+  document.getElementById('customEtfList').dataset.country = ''; // 강제 재렌더
+  calculate();
+}
+
+function deletePreset(idx) {
+  if (!confirm(`구성 ${idx + 1}을(를) 삭제할까요?`)) return;
+  const presets = loadPresets();
+  presets[idx] = null;
+  storePresets(presets);
+  renderPresetSlots();
+}
+
 /* ===================== 슬라이더 동기화 ===================== */
 function syncSlider(id) {
   const val = parseFloat(document.getElementById(id).value) || 0;
   document.getElementById(id + 'Range').value = val;
   updateSliderLabel(id, val);
+  if (id === 'investment') saveInvestment();
   calculate();
 }
 function syncInput(id) {
   const val = parseFloat(document.getElementById(id + 'Range').value) || 0;
   document.getElementById(id).value = val;
   updateSliderLabel(id, val);
+  if (id === 'investment') saveInvestment();
   calculate();
 }
 function updateSliderLabel(id, val) {
@@ -572,7 +695,16 @@ async function loadLiveFxRate() {
 
 /* ===================== 초기화 ===================== */
 renderStrategyCards();
+loadSavedInvestment();
 updateSliderLabel('investment', parseFloat(document.getElementById('investment').value) || 0);
 calculate();
 loadLiveYields();
 loadLiveFxRate();
+
+/* bfcache 복원 시(스크립트 재실행 없음) 저장된 투자금액 재적용 */
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  loadSavedInvestment();
+  updateSliderLabel('investment', parseFloat(document.getElementById('investment').value) || 0);
+  calculate();
+});
