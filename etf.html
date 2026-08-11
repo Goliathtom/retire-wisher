@@ -547,7 +547,10 @@
     <div id="customBuilder">
       <div class="custom-builder-header">
         <span class="custom-builder-title">⚙️ ETF 비율 설정</span>
-        <button class="custom-action-btn" onclick="distributeEvenly()">균등 배분</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="custom-action-btn" onclick="distributeEvenly()">균등 배분</button>
+          <button class="custom-action-btn" onclick="resetAllocations()">초기화</button>
+        </div>
       </div>
       <div id="customEtfList"></div>
       <div class="custom-total-bar">
@@ -608,7 +611,7 @@
     <div class="result-cell" style="margin-bottom:20px;">
       <div class="label">🇺🇸 투자금 (USD)</div>
       <div class="row-value accent" id="resultInvestUSD" style="font-size:1.4rem;font-weight:800;">—</div>
-      <div class="sub" style="margin-top:6px;">1$ = 1,450원</div>
+      <div class="sub" style="margin-top:6px;" id="investFxLabel">1$ = 1,450원</div>
     </div>
 
     <!-- ETF별 기여 -->
