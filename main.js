@@ -13,7 +13,7 @@ const TAX_BRACKETS = [
 const LOCAL_TAX_RATE = 0.10;
 
 const INS = {
-  pension: { rate: 0.0475, monthlyCap: 6_370_000 },
+  pension: { rate: 0.0475, monthlyCap: 6_590_000 }, // 기준소득월액 상한 659만원 (2026.7~)
   health: { rate: 0.03595 },
   longterm: { rate: 0.004724 },
   employment: { rate: 0.009 },
