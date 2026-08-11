@@ -1,5 +1,5 @@
 /* ===================== 상수 ===================== */
-const USD_TO_KRW     = 1450;
+let USD_TO_KRW       = 1450; // 기본값 — 실시간 환율 조회 성공 시 갱신됨
 const WITHHOLDING_US = 0.15;
 const WITHHOLDING_KR = 0.154;
 
@@ -24,10 +24,10 @@ const ETF_DATA = {
 const CUSTOM_ETFS_US = ['SCHD', 'JEPI', 'GPIQ', 'JEPQ', 'SPYI', 'QQQI'];
 const CUSTOM_ETFS_KR = ['TIGER배당다우', 'SOL배당다우', 'TIGER고배당', 'TIGER프리미엄', 'KODEX프리미엄', 'KODEX나스닥프리미엄'];
 
-/* 커스텀 초기 배분 (합계 = 100) */
+/* 커스텀 초기 배분 (모두 0 — 사용자가 직접 설정) */
 const customAllocations = {
-  us: { SCHD: 40, JEPI: 30, GPIQ: 0, JEPQ: 20, SPYI: 10, QQQI: 0 },
-  kr: { 'TIGER배당다우': 50, 'SOL배당다우': 0, 'TIGER고배당': 0, 'TIGER프리미엄': 50, 'KODEX프리미엄': 0, 'KODEX나스닥프리미엄': 0 },
+  us: { SCHD: 0, JEPI: 0, GPIQ: 0, JEPQ: 0, SPYI: 0, QQQI: 0 },
+  kr: { 'TIGER배당다우': 0, 'SOL배당다우': 0, 'TIGER고배당': 0, 'TIGER프리미엄': 0, 'KODEX프리미엄': 0, 'KODEX나스닥프리미엄': 0 },
 };
 
 const STRATEGIES_US = [
@@ -187,7 +187,10 @@ function calculate() {
   if (isCustom) {
     renderCustomBuilder();
     const total = getCustomTotal();
-    if (total !== 100) return; // 합계가 100이 아니면 결과 미표시
+    if (total !== 100) {
+      document.getElementById('resultSection').style.display = 'none'; // 합계가 100이 아니면 결과 숨김
+      return;
+    }
   }
 
   const withholding  = currentCountry === 'us' ? WITHHOLDING_US : WITHHOLDING_KR;
@@ -213,6 +216,7 @@ function calculate() {
   document.getElementById('resultYield').textContent           = (blendedYield * 100).toFixed(2) + '%';
   document.getElementById('resultYieldAfter').textContent      = (yieldAfter * 100).toFixed(2) + '%';
   document.getElementById('resultInvestUSD').textContent       = '≈ ' + fmtUSD(investUSD);
+  document.getElementById('investFxLabel').textContent         = `1$ = ${Math.round(USD_TO_KRW).toLocaleString('ko-KR')}원`;
 
   /* 세율 배너 */
   const infoEl = document.getElementById('taxInfoBanner');
@@ -347,6 +351,17 @@ function distributeEvenly() {
   document.getElementById('customEtfList').dataset.country = '';
   renderCustomBuilder();
   calculate();
+}
+
+function resetAllocations() {
+  const keys = currentCountry === 'us' ? CUSTOM_ETFS_US : CUSTOM_ETFS_KR;
+  keys.forEach(k => { customAllocations[currentCountry][k] = 0; });
+  // 컨테이너 리셋 후 재렌더
+  document.getElementById('customEtfList').dataset.country = '';
+  renderCustomBuilder();
+  document.getElementById('resultSection').style.display = 'none';
+  const badge = document.getElementById('customYieldBadge');
+  if (badge) badge.textContent = '—';
 }
 
 /* ===================== 로컬 저장 (투자금액 · 나만의 구성) ===================== */
@@ -666,6 +681,13 @@ function setFxRate(rate, ts) {
   if (ts) el.title = `Yahoo Finance 기준 (${new Date(ts).toLocaleString('ko-KR')})`;
 }
 
+/* 실시간 환율을 계산에 반영: 전역 환율 갱신 + footer 표시 + USD 표기 재계산 */
+function applyFxRate(rate, ts) {
+  USD_TO_KRW = rate;
+  setFxRate(rate, ts);
+  calculate();
+}
+
 async function fetchFxRate() {
   let json;
   try {
@@ -682,14 +704,14 @@ async function loadLiveFxRate() {
   try {
     const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || 'null');
     if (cached && Date.now() - cached.ts < FX_CACHE_TTL) {
-      setFxRate(cached.rate, cached.ts);
+      applyFxRate(cached.rate, cached.ts);
       return;
     }
   } catch (e) {}
 
   const rate = await fetchFxRate();
   if (rate == null) return; // 실패 시 기본값(1,450원) 유지
-  setFxRate(rate, Date.now());
+  applyFxRate(rate, Date.now());
   localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ ts: Date.now(), rate }));
 }
 
