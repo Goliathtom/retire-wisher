@@ -200,6 +200,37 @@
       color: var(--muted);
     }
     .fx-section-label:first-of-type { margin-top: 0; }
+
+    /* ── 미국 지수 탭 ── */
+    .fx-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .fx-tab-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .fx-tab-btn:hover { color: var(--text); border-color: rgba(108,140,255,0.4); }
+    .fx-tab-btn.active {
+      background: rgba(108,140,255,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    @media (max-width: 640px) { .fx-tab-btn { font-size: 0.78rem; padding: 10px 4px; } }
+
+    /* ── 탭 패널 ── */
+    .fx-panel { display: none; }
+    .fx-panel.active { display: block; }
     .fx-card-wide { margin-bottom: 16px; }
 
     .fx-status {
@@ -257,7 +288,13 @@
   </div>
 
   <div class="fx-section-label">미국 지수</div>
-  <div class="fx-card fx-card-wide">
+  <div class="fx-tabs" id="usTabs">
+    <button class="fx-tab-btn active" data-code="DJI">다우존스</button>
+    <button class="fx-tab-btn" data-code="IXIC">나스닥</button>
+    <button class="fx-tab-btn" data-code="GSPC">S&amp;P 500</button>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel active" id="cardDJI">
     <div class="fx-card-head">
       <span class="fx-flag">🇺🇸</span>
       <div>
@@ -272,7 +309,7 @@
     <div class="fx-range" id="rangeDJI"></div>
   </div>
 
-  <div class="fx-card fx-card-wide">
+  <div class="fx-card fx-card-wide fx-panel" id="cardIXIC">
     <div class="fx-card-head">
       <span class="fx-flag">🇺🇸</span>
       <div>
@@ -287,7 +324,7 @@
     <div class="fx-range" id="rangeIXIC"></div>
   </div>
 
-  <div class="fx-card fx-card-wide">
+  <div class="fx-card fx-card-wide fx-panel" id="cardGSPC">
     <div class="fx-card-head">
       <span class="fx-flag">🇺🇸</span>
       <div>
@@ -303,7 +340,13 @@
   </div>
 
   <div class="fx-section-label">원자재</div>
-  <div class="fx-card fx-card-wide">
+  <div class="fx-tabs" id="cmdTabs">
+    <button class="fx-tab-btn active" data-code="GOLD">금</button>
+    <button class="fx-tab-btn" data-code="WTI">WTI 원유</button>
+    <button class="fx-tab-btn" data-code="BRENT">브렌트유</button>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel active" id="cardGOLD">
     <div class="fx-card-head">
       <span class="fx-flag">🥇</span>
       <div>
@@ -318,7 +361,7 @@
     <div class="fx-range" id="rangeGOLD"></div>
   </div>
 
-  <div class="fx-card fx-card-wide">
+  <div class="fx-card fx-card-wide fx-panel" id="cardWTI">
     <div class="fx-card-head">
       <span class="fx-flag">🛢️</span>
       <div>
@@ -333,7 +376,7 @@
     <div class="fx-range" id="rangeWTI"></div>
   </div>
 
-  <div class="fx-card fx-card-wide">
+  <div class="fx-card fx-card-wide fx-panel" id="cardBRENT">
     <div class="fx-card-head">
       <span class="fx-flag">🛢️</span>
       <div>

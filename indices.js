@@ -34,22 +34,22 @@ const ASSETS = [
   { code: 'KOSPI', symbol: '^KS11', color: '#f87171', period: DEFAULT_PERIOD,
     rateEl: 'rateKOSPI', changeEl: 'changeKOSPI', chartEl: 'chartKOSPI', rangeEl: 'rangeKOSPI', periodsEl: 'periodsKOSPI',
     chartW: 820, chartH: 240 },
-  { code: 'DJI',  symbol: '^DJI',  color: '#6c8cff', period: DEFAULT_PERIOD,
+  { code: 'DJI',  symbol: '^DJI',  color: '#6c8cff', period: DEFAULT_PERIOD, cardEl: 'cardDJI',
     rateEl: 'rateDJI',  changeEl: 'changeDJI',  chartEl: 'chartDJI',  rangeEl: 'rangeDJI', periodsEl: 'periodsDJI',
     chartW: 820, chartH: 240 },
-  { code: 'IXIC', symbol: '^IXIC', color: '#a78bfa', period: DEFAULT_PERIOD,
+  { code: 'IXIC', symbol: '^IXIC', color: '#a78bfa', period: DEFAULT_PERIOD, cardEl: 'cardIXIC',
     rateEl: 'rateIXIC', changeEl: 'changeIXIC', chartEl: 'chartIXIC', rangeEl: 'rangeIXIC', periodsEl: 'periodsIXIC',
     chartW: 820, chartH: 240 },
-  { code: 'GSPC', symbol: '^GSPC', color: '#34d399', period: DEFAULT_PERIOD,
+  { code: 'GSPC', symbol: '^GSPC', color: '#34d399', period: DEFAULT_PERIOD, cardEl: 'cardGSPC',
     rateEl: 'rateGSPC', changeEl: 'changeGSPC', chartEl: 'chartGSPC', rangeEl: 'rangeGSPC', periodsEl: 'periodsGSPC',
     chartW: 820, chartH: 240 },
-  { code: 'GOLD', symbol: 'GC=F', color: '#fbbf24', period: DEFAULT_PERIOD,
+  { code: 'GOLD', symbol: 'GC=F', color: '#fbbf24', period: DEFAULT_PERIOD, cardEl: 'cardGOLD',
     rateEl: 'rateGOLD', changeEl: 'changeGOLD', chartEl: 'chartGOLD', rangeEl: 'rangeGOLD', periodsEl: 'periodsGOLD',
     chartW: 820, chartH: 240 },
-  { code: 'WTI',  symbol: 'CL=F', color: '#f59e0b', period: DEFAULT_PERIOD,
+  { code: 'WTI',  symbol: 'CL=F', color: '#f59e0b', period: DEFAULT_PERIOD, cardEl: 'cardWTI',
     rateEl: 'rateWTI', changeEl: 'changeWTI', chartEl: 'chartWTI', rangeEl: 'rangeWTI', periodsEl: 'periodsWTI',
     chartW: 820, chartH: 240 },
-  { code: 'BRENT', symbol: 'BZ=F', color: '#38bdf8', period: DEFAULT_PERIOD,
+  { code: 'BRENT', symbol: 'BZ=F', color: '#38bdf8', period: DEFAULT_PERIOD, cardEl: 'cardBRENT',
     rateEl: 'rateBRENT', changeEl: 'changeBRENT', chartEl: 'chartBRENT', rangeEl: 'rangeBRENT', periodsEl: 'periodsBRENT',
     chartW: 820, chartH: 240 },
 ];
@@ -313,8 +313,32 @@ function buildPeriodButtons(asset) {
   });
 }
 
-/* ===================== 초기화 ===================== */
-ASSETS.forEach((asset) => {
-  buildPeriodButtons(asset);
-  loadAsset(asset);
+/* ===================== 섹션별 탭 전환 (미국 지수 · 원자재) ===================== */
+const TAB_GROUPS = [
+  { tabsId: 'usTabs',  codes: ['DJI', 'IXIC', 'GSPC'],    initial: 'DJI' },
+  { tabsId: 'cmdTabs', codes: ['GOLD', 'WTI', 'BRENT'],   initial: 'GOLD' },
+];
+
+function activateTabIn(group, code) {
+  const asset = ASSETS.find((a) => a.code === code);
+  if (!asset) return;
+  group.codes.forEach((c) => {
+    document.getElementById(`card${c}`)?.classList.toggle('active', c === code);
+  });
+  document.querySelectorAll(`#${group.tabsId} .fx-tab-btn`).forEach((b) =>
+    b.classList.toggle('active', b.dataset.code === code));
+  loadAsset(asset); // 선택된 지표만 로드 (5분 캐시 히트 시 즉시 표시)
+}
+
+TAB_GROUPS.forEach((group) => {
+  document.getElementById(group.tabsId).addEventListener('click', (e) => {
+    const btn = e.target.closest('.fx-tab-btn');
+    if (btn) activateTabIn(group, btn.dataset.code);
+  });
 });
+
+/* ===================== 초기화 ===================== */
+const TABBED_CODES = TAB_GROUPS.flatMap((g) => g.codes);
+ASSETS.forEach(buildPeriodButtons);
+ASSETS.filter((a) => !TABBED_CODES.includes(a.code)).forEach(loadAsset); // 코스피는 항상 표시
+TAB_GROUPS.forEach((g) => activateTabIn(g, g.initial));
