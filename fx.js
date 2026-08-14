@@ -23,15 +23,18 @@ const DEFAULT_PERIOD = '1D';
 /* 지표 정의: multiplier 는 표시 단위(엔은 100엔 기준), unit 은 값 뒤 단위(달러 인덱스는 없음),
    period 는 카드별 현재 선택 기간. 달러 인덱스(DXY)는 넓은 카드용 차트 크기(chartW/chartH)를 별도 지정. */
 const CURRENCIES = [
-  { code: 'USD', symbol: 'KRW=X',    multiplier: 1,   unit: '원', period: DEFAULT_PERIOD,
-    rateEl: 'rateUSD', changeEl: 'changeUSD', chartEl: 'chartUSD', rangeEl: 'rangeUSD', periodsEl: 'periodsUSD' },
-  { code: 'EUR', symbol: 'EURKRW=X', multiplier: 1,   unit: '원', period: DEFAULT_PERIOD,
-    rateEl: 'rateEUR', changeEl: 'changeEUR', chartEl: 'chartEUR', rangeEl: 'rangeEUR', periodsEl: 'periodsEUR' },
-  { code: 'JPY', symbol: 'JPYKRW=X', multiplier: 100, unit: '원', period: DEFAULT_PERIOD,
-    rateEl: 'rateJPY', changeEl: 'changeJPY', chartEl: 'chartJPY', rangeEl: 'rangeJPY', periodsEl: 'periodsJPY' },
-  { code: 'DXY', symbol: 'DX-Y.NYB', multiplier: 1,   unit: '',   period: DEFAULT_PERIOD,
+  { code: 'USD', symbol: 'KRW=X',    multiplier: 1,   unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardUSD',
+    rateEl: 'rateUSD', changeEl: 'changeUSD', chartEl: 'chartUSD', rangeEl: 'rangeUSD', periodsEl: 'periodsUSD',
+    chartW: 820, chartH: 240 },
+  { code: 'EUR', symbol: 'EURKRW=X', multiplier: 1,   unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardEUR',
+    rateEl: 'rateEUR', changeEl: 'changeEUR', chartEl: 'chartEUR', rangeEl: 'rangeEUR', periodsEl: 'periodsEUR',
+    chartW: 820, chartH: 240 },
+  { code: 'JPY', symbol: 'JPYKRW=X', multiplier: 100, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardJPY',
+    rateEl: 'rateJPY', changeEl: 'changeJPY', chartEl: 'chartJPY', rangeEl: 'rangeJPY', periodsEl: 'periodsJPY',
+    chartW: 820, chartH: 240 },
+  { code: 'DXY', symbol: 'DX-Y.NYB', multiplier: 1,   unit: '',   period: DEFAULT_PERIOD, cardEl: 'cardDXY',
     rateEl: 'rateDXY', changeEl: 'changeDXY', chartEl: 'chartDXY', rangeEl: 'rangeDXY', periodsEl: 'periodsDXY',
-    chartW: 820, chartH: 130 },
+    chartW: 820, chartH: 240 },
 ];
 
 async function fxTryFetch(url) {
@@ -75,31 +78,61 @@ async function fetchFxData(symbol, period) {
 const wonFmt = (n) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 const timeFmt = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getFullYear()).slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /* 상승하락 방향별 그래프 색상: 상승=빨강 · 하락=파랑 · 보합=회색 (.fx-change 색과 통일) */
 const DIR_COLORS = { up: '#f87171', down: '#6c8cff', flat: '#94a3b8' };
 
-/* 종가 시계열 -> 인라인 SVG 라인+영역 차트. */
-function buildChartSVG(series, color, W = 260, H = 90) {
-  const PAD = 6;
+const CHART_MARGIN = { L: 46, R: 10, T: 10, B: 22 };
+
+/* 차트 축(y축 값 그리드 + x축 라벨) SVG. 눈금 간격이 1 미만이면 소수 2자리로 표기(intraday 환율 대응). */
+function buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks) {
+  let g = '';
+  const yN = 4;
+  const digits = (yMax - yMin) / (yN - 1) >= 1 ? 0 : 2;
+  for (let i = 0; i < yN; i++) {
+    const v = yMin + ((yMax - yMin) * i) / (yN - 1);
+    const y = yScale(v);
+    g += `<line class="fx-grid-line" x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${(W - PAD_R).toFixed(1)}" y2="${y.toFixed(1)}" />`;
+    g += `<text class="fx-axis-label" x="${PAD_L - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${v.toLocaleString('ko-KR', { maximumFractionDigits: digits })}</text>`;
+  }
+  const yBase = PAD_T + plotH + 15;
+  xTicks.forEach((t) => {
+    g += `<text class="fx-axis-label" x="${t.x.toFixed(1)}" y="${yBase.toFixed(1)}" text-anchor="${t.anchor}">${t.label}</text>`;
+  });
+  return g;
+}
+
+/* 종가 시계열 -> 인라인 SVG 라인+영역 차트 (x/y축 포함). */
+function buildChartSVG(series, color, W = 820, H = 240, xFmt = ymdFmt) {
+  const { L: PAD_L, R: PAD_R, T: PAD_T, B: PAD_B } = CHART_MARGIN;
+  const plotW = W - PAD_L - PAD_R, plotH = H - PAD_T - PAD_B;
   const xs = series.map((p) => p.x);
   const ys = series.map((p) => p.y);
   const xMin = Math.min(...xs), xMax = Math.max(...xs);
   const yMin = Math.min(...ys), yMax = Math.max(...ys);
-  const yPad = (yMax - yMin) * 0.12 || 1;
+  const yPad = (yMax - yMin) * 0.08 || 1;
   const lo = yMin - yPad, hi = yMax + yPad;
 
-  const xScale = (x) => PAD + ((x - xMin) / (xMax - xMin || 1)) * (W - 2 * PAD);
-  const yScale = (y) => PAD + (1 - (y - lo) / (hi - lo || 1)) * (H - 2 * PAD);
+  const xScale = (x) => PAD_L + ((x - xMin) / (xMax - xMin || 1)) * plotW;
+  const yScale = (y) => PAD_T + (1 - (y - lo) / (hi - lo || 1)) * plotH;
 
   const line = series
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x).toFixed(1)} ${yScale(p.y).toFixed(1)}`)
     .join(' ');
-  const area = `${line} L ${xScale(xMax).toFixed(1)} ${H - PAD} L ${xScale(xMin).toFixed(1)} ${H - PAD} Z`;
+  const bottom = (PAD_T + plotH).toFixed(1);
+  const area = `${line} L ${xScale(xMax).toFixed(1)} ${bottom} L ${xScale(xMin).toFixed(1)} ${bottom} Z`;
   const last = series[series.length - 1];
+
+  const xN = 4;
+  const xTicks = Array.from({ length: xN }, (_, i) => {
+    const t = xMin + ((xMax - xMin) * i) / (xN - 1);
+    return { x: xScale(t), label: xFmt(t), anchor: i === 0 ? 'start' : i === xN - 1 ? 'end' : 'middle' };
+  });
 
   return `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="기간 환율 추이">
+      ${buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks)}
       <path class="fx-chart-area" d="${area}" fill="${color}" />
       <path class="fx-chart-line" d="${line}" stroke="${color}" />
       <circle cx="${xScale(last.x).toFixed(1)}" cy="${yScale(last.y).toFixed(1)}" r="2.5" fill="${color}" />
@@ -134,8 +167,10 @@ function renderCurrency(cur, data) {
   changeEl.className = `fx-change ${dir}`;
   changeEl.textContent = `${arrow} ${sign}${wonFmt(Math.abs(diff))}${u} (${sign}${Math.abs(pct).toFixed(2)}%) · ${p.changeLabel}`;
 
-  /* 기간 차트 */
-  chartEl.innerHTML = buildChartSVG(series, DIR_COLORS[dir], cur.chartW, cur.chartH);
+  /* 기간 차트 (y축은 표시 단위로 환산한 값, x축은 단기=시각·장기=날짜) */
+  const xFmt = p.intraday ? timeFmt : ymdFmt;
+  const dispSeries = m === 1 ? series : series.map((pt) => ({ x: pt.x, y: pt.y * m }));
+  chartEl.innerHTML = buildChartSVG(dispSeries, DIR_COLORS[dir], cur.chartW, cur.chartH, xFmt);
 
   /* 기간 최저·최고 */
   const ys = series.map((pt) => pt.y * m);
@@ -203,8 +238,23 @@ function buildPeriodButtons(cur) {
   });
 }
 
-/* ===================== 초기화 ===================== */
-CURRENCIES.forEach((cur) => {
-  buildPeriodButtons(cur);
-  loadCurrency(cur);
+/* ===================== 국기 탭 전환 ===================== */
+function activateTab(code) {
+  const cur = CURRENCIES.find((c) => c.code === code);
+  if (!cur) return;
+  CURRENCIES.forEach((c) => {
+    document.getElementById(c.cardEl)?.classList.toggle('active', c.code === code);
+  });
+  document.querySelectorAll('#fxTabs .fx-tab-btn').forEach((b) =>
+    b.classList.toggle('active', b.dataset.code === code));
+  loadCurrency(cur); // 선택된 통화만 로드 (5분 캐시 히트 시 즉시 표시)
+}
+
+document.getElementById('fxTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.fx-tab-btn');
+  if (btn) activateTab(btn.dataset.code);
 });
+
+/* ===================== 초기화 ===================== */
+CURRENCIES.forEach(buildPeriodButtons);
+activateTab('USD');
