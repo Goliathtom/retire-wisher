@@ -48,7 +48,7 @@
 - **Yahoo Finance 조회** — CORS 프록시 자동 fallback + 통화·기간별 localStorage 5분 캐시
 
 ### 📊 주요 지수 (`indices.html`)
-- **국내 지수** — 코스피(KOSPI), 항상 표시
+- **국내 지수** — 코스피(KOSPI) · 코스닥(KOSDAQ) 탭으로 패널 전환
 - **미국 지수** — 다우존스 · 나스닥 · S&P 500 탭으로 패널 전환, 선택한 지수만 조회(lazy load)
 - **원자재** — 금(GC=F) · WTI 원유(CL=F) · 브렌트유(BZ=F) 탭으로 패널 전환
 - **암호화폐** — 비트코인 USD(BTC-USD) · KRW(BTC-KRW, 원화 환산) 탭으로 패널 전환

@@ -31,8 +31,11 @@ const CANDLE_DOWN = '#6c8cff'; // 음봉(하락) = 파랑
 
 /* 지수 정의: color 는 차트 색상, period 는 카드별 현재 선택 기간(기본 3개월). */
 const ASSETS = [
-  { code: 'KOSPI', symbol: '^KS11', color: '#f87171', period: DEFAULT_PERIOD,
+  { code: 'KOSPI', symbol: '^KS11', color: '#f87171', period: DEFAULT_PERIOD, cardEl: 'cardKOSPI',
     rateEl: 'rateKOSPI', changeEl: 'changeKOSPI', chartEl: 'chartKOSPI', rangeEl: 'rangeKOSPI', periodsEl: 'periodsKOSPI',
+    chartW: 820, chartH: 240 },
+  { code: 'KOSDAQ', symbol: '^KQ11', color: '#fb923c', period: DEFAULT_PERIOD, cardEl: 'cardKOSDAQ',
+    rateEl: 'rateKOSDAQ', changeEl: 'changeKOSDAQ', chartEl: 'chartKOSDAQ', rangeEl: 'rangeKOSDAQ', periodsEl: 'periodsKOSDAQ',
     chartW: 820, chartH: 240 },
   { code: 'DJI',  symbol: '^DJI',  color: '#6c8cff', period: DEFAULT_PERIOD, cardEl: 'cardDJI',
     rateEl: 'rateDJI',  changeEl: 'changeDJI',  chartEl: 'chartDJI',  rangeEl: 'rangeDJI', periodsEl: 'periodsDJI',
@@ -322,6 +325,7 @@ function buildPeriodButtons(asset) {
 
 /* ===================== 섹션별 탭 전환 (미국 지수 · 원자재) ===================== */
 const TAB_GROUPS = [
+  { tabsId: 'krTabs',     codes: ['KOSPI', 'KOSDAQ'],       initial: 'KOSPI' },
   { tabsId: 'usTabs',     codes: ['DJI', 'IXIC', 'GSPC'],   initial: 'DJI' },
   { tabsId: 'cmdTabs',    codes: ['GOLD', 'WTI', 'BRENT'],  initial: 'GOLD' },
   { tabsId: 'cryptoTabs', codes: ['BTCUSD', 'BTCKRW'],      initial: 'BTCUSD' },
@@ -346,7 +350,5 @@ TAB_GROUPS.forEach((group) => {
 });
 
 /* ===================== 초기화 ===================== */
-const TABBED_CODES = TAB_GROUPS.flatMap((g) => g.codes);
 ASSETS.forEach(buildPeriodButtons);
-ASSETS.filter((a) => !TABBED_CODES.includes(a.code)).forEach(loadAsset); // 코스피는 항상 표시
 TAB_GROUPS.forEach((g) => activateTabIn(g, g.initial));
