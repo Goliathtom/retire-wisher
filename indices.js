@@ -52,6 +52,12 @@ const ASSETS = [
   { code: 'BRENT', symbol: 'BZ=F', color: '#38bdf8', period: DEFAULT_PERIOD, cardEl: 'cardBRENT',
     rateEl: 'rateBRENT', changeEl: 'changeBRENT', chartEl: 'chartBRENT', rangeEl: 'rangeBRENT', periodsEl: 'periodsBRENT',
     chartW: 820, chartH: 240 },
+  { code: 'BTCUSD', symbol: 'BTC-USD', color: '#f7931a', period: DEFAULT_PERIOD, cardEl: 'cardBTCUSD',
+    rateEl: 'rateBTCUSD', changeEl: 'changeBTCUSD', chartEl: 'chartBTCUSD', rangeEl: 'rangeBTCUSD', periodsEl: 'periodsBTCUSD',
+    chartW: 820, chartH: 240 },
+  { code: 'BTCKRW', symbol: 'BTC-KRW', color: '#f7931a', period: DEFAULT_PERIOD, cardEl: 'cardBTCKRW', decimals: 0,
+    rateEl: 'rateBTCKRW', changeEl: 'changeBTCKRW', chartEl: 'chartBTCKRW', rangeEl: 'rangeBTCKRW', periodsEl: 'periodsBTCKRW',
+    chartW: 820, chartH: 240 },
 ];
 
 async function idxTryFetch(url) {
@@ -116,7 +122,7 @@ async function fetchIdxData(symbol, period) {
   return dataFromChart(json, p.interval);
 }
 
-const numFmt = (n) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const numFmt = (n, d = 2) => n.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 const timeFmt = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getFullYear()).slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -225,9 +231,10 @@ function renderAsset(asset, data) {
   const { series, prevClose } = data;
   const cur = series[series.length - 1].c;
 
-  /* 현재값 */
+  /* 현재값 (자산별 소수 자릿수 — 원화 환산 등 큰 값은 0자리) */
+  const dec = asset.decimals ?? 2;
   rateEl.classList.remove('loading');
-  rateEl.textContent = numFmt(cur);
+  rateEl.textContent = numFmt(cur, dec);
 
   /* 변동: 캔들(전일/전주/전월)은 직전 봉 종가 대비, 선 그래프는 기간 시작 직전 종가 대비 */
   const baseline = p.changeMode === 'bar' ? series[series.length - 2].c : prevClose;
@@ -237,7 +244,7 @@ function renderAsset(asset, data) {
   const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '−';
   const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
   changeEl.className = `fx-change ${dir}`;
-  changeEl.textContent = `${arrow} ${sign}${numFmt(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(2)}%) · ${p.changeLabel}`;
+  changeEl.textContent = `${arrow} ${sign}${numFmt(Math.abs(diff), dec)} (${sign}${Math.abs(pct).toFixed(2)}%) · ${p.changeLabel}`;
 
   /* 차트 (캔들 / 선) */
   const xFmt = p.intraday ? timeFmt : ymdFmt;
@@ -257,14 +264,14 @@ function renderAsset(asset, data) {
         `<span class="fx-range-label">${rl} 최고</span>` +
         `<span class="fx-range-date">${stamp(series[highIdx].x)}</span>` +
       `</div>` +
-      `<span class="fx-range-val high">${numFmt(highVals[highIdx])}</span>` +
+      `<span class="fx-range-val high">${numFmt(highVals[highIdx], dec)}</span>` +
     `</div>` +
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
         `<span class="fx-range-label">${rl} 최저</span>` +
         `<span class="fx-range-date">${stamp(series[lowIdx].x)}</span>` +
       `</div>` +
-      `<span class="fx-range-val low">${numFmt(lowVals[lowIdx])}</span>` +
+      `<span class="fx-range-val low">${numFmt(lowVals[lowIdx], dec)}</span>` +
     `</div>`;
 }
 
@@ -315,8 +322,9 @@ function buildPeriodButtons(asset) {
 
 /* ===================== 섹션별 탭 전환 (미국 지수 · 원자재) ===================== */
 const TAB_GROUPS = [
-  { tabsId: 'usTabs',  codes: ['DJI', 'IXIC', 'GSPC'],    initial: 'DJI' },
-  { tabsId: 'cmdTabs', codes: ['GOLD', 'WTI', 'BRENT'],   initial: 'GOLD' },
+  { tabsId: 'usTabs',     codes: ['DJI', 'IXIC', 'GSPC'],   initial: 'DJI' },
+  { tabsId: 'cmdTabs',    codes: ['GOLD', 'WTI', 'BRENT'],  initial: 'GOLD' },
+  { tabsId: 'cryptoTabs', codes: ['BTCUSD', 'BTCKRW'],      initial: 'BTCUSD' },
 ];
 
 function activateTabIn(group, code) {
