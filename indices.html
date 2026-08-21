@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>은퇴바라기 — 주요 지수</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌅</text></svg>" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -272,7 +273,12 @@
   </div>
 
   <div class="fx-section-label">국내 지수</div>
-  <div class="fx-card fx-card-wide">
+  <div class="fx-tabs" id="krTabs">
+    <button class="fx-tab-btn active" data-code="KOSPI">코스피</button>
+    <button class="fx-tab-btn" data-code="KOSDAQ">코스닥</button>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel active" id="cardKOSPI">
     <div class="fx-card-head">
       <span class="fx-flag">🇰🇷</span>
       <div>
@@ -285,6 +291,21 @@
     <div class="card-periods" id="periodsKOSPI"></div>
     <div class="fx-chart" id="chartKOSPI"></div>
     <div class="fx-range" id="rangeKOSPI"></div>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel" id="cardKOSDAQ">
+    <div class="fx-card-head">
+      <span class="fx-flag">🇰🇷</span>
+      <div>
+        <div class="fx-pair">코스닥 (KOSDAQ)</div>
+        <div class="fx-sub">코스닥 종합지수</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateKOSDAQ">불러오는 중…</div>
+    <div class="fx-change flat" id="changeKOSDAQ"></div>
+    <div class="card-periods" id="periodsKOSDAQ"></div>
+    <div class="fx-chart" id="chartKOSDAQ"></div>
+    <div class="fx-range" id="rangeKOSDAQ"></div>
   </div>
 
   <div class="fx-section-label">미국 지수</div>
@@ -389,6 +410,42 @@
     <div class="card-periods" id="periodsBRENT"></div>
     <div class="fx-chart" id="chartBRENT"></div>
     <div class="fx-range" id="rangeBRENT"></div>
+  </div>
+
+  <div class="fx-section-label">암호화폐</div>
+  <div class="fx-tabs" id="cryptoTabs">
+    <button class="fx-tab-btn active" data-code="BTCUSD">비트코인 (USD)</button>
+    <button class="fx-tab-btn" data-code="BTCKRW">비트코인 (KRW)</button>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel active" id="cardBTCUSD">
+    <div class="fx-card-head">
+      <span class="fx-flag">🪙</span>
+      <div>
+        <div class="fx-pair">비트코인 (BTC/USD)</div>
+        <div class="fx-sub">USD 기준 · 24시간 거래</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateBTCUSD">불러오는 중…</div>
+    <div class="fx-change flat" id="changeBTCUSD"></div>
+    <div class="card-periods" id="periodsBTCUSD"></div>
+    <div class="fx-chart" id="chartBTCUSD"></div>
+    <div class="fx-range" id="rangeBTCUSD"></div>
+  </div>
+
+  <div class="fx-card fx-card-wide fx-panel" id="cardBTCKRW">
+    <div class="fx-card-head">
+      <span class="fx-flag">🪙</span>
+      <div>
+        <div class="fx-pair">비트코인 (BTC/KRW)</div>
+        <div class="fx-sub">원화 환산 기준 · 국내 거래소 시세와 다를 수 있음</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateBTCKRW">불러오는 중…</div>
+    <div class="fx-change flat" id="changeBTCKRW"></div>
+    <div class="card-periods" id="periodsBTCKRW"></div>
+    <div class="fx-chart" id="chartBTCKRW"></div>
+    <div class="fx-range" id="rangeBTCKRW"></div>
   </div>
 </div>
 
