@@ -4,7 +4,12 @@
    해당 지수만 다시 로드한다. 변동 기준은 기간 시작 직전 종가(chartPreviousClose).
    fx.js 와 동일한 CORS 프록시 fallback + localStorage 캐시(TTL 5분, 지수·기간별로 분리). */
 
-const IDX_PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+/* CORS 프록시 — 자체 Cloudflare Worker(cloudflare-worker.js) 우선, 실패 시 공개 프록시 순차 시도 */
+const IDX_PROXIES = [
+  (url) => `https://retire-wisher.goliathtom11.workers.dev/?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 const IDX_CACHE_TTL = 5 * 60 * 1000; // 5분
 const IDX_CHART_URL = (sym, range, interval) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}`;
@@ -113,15 +118,19 @@ function dataFromChart(json, interval) {
   return { series, prevClose };
 }
 
+/* 직접 호출(CORS 로 대부분 실패) 후 프록시 목록을 순차 시도. */
+async function idxFetchJson(url) {
+  try { return await idxTryFetch(url); } catch (e) {}
+  let lastErr;
+  for (const proxy of IDX_PROXIES) {
+    try { return await idxTryFetch(proxy(url)); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('all proxies failed');
+}
+
 async function fetchIdxData(symbol, period) {
   const p = PERIODS[period];
-  const url = IDX_CHART_URL(symbol, p.range, p.interval);
-  let json;
-  try {
-    json = await idxTryFetch(url);
-  } catch (e1) {
-    json = await idxTryFetch(IDX_PROXY_URL(url)); // CORS 프록시 fallback
-  }
+  const json = await idxFetchJson(IDX_CHART_URL(symbol, p.range, p.interval));
   return dataFromChart(json, p.interval);
 }
 
@@ -292,7 +301,10 @@ async function loadAsset(asset) {
     }
   } catch (e) {}
 
-  const data = await fetchIdxData(asset.symbol, period);
+  let data = null;
+  try {
+    data = await fetchIdxData(asset.symbol, period);
+  } catch (e) {} // 모든 프록시 실패 → data=null 로 '조회 실패' 표시
   if (asset.period !== period) return; // 그 사이 다른 기간이 선택됨 → 최신 요청만 반영
 
   if (!data) {

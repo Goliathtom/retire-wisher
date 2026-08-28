@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.12.1] - 2026-08-28
+
+### Fixed
+- 실시간 데이터 조회 전면 장애 복구 — CORS 프록시로 쓰던 corsproxy.io 가 유료화(401)되어 환율·지수·ETF 수익률·Fear & Greed 조회가 모두 실패하던 문제. 자체 Cloudflare Worker 프록시(`cloudflare-worker.js`, 허용 호스트 화이트리스트 적용)를 1순위로 사용하고, 공개 프록시(allorigins·codetabs)를 순차 fallback 체인으로 전환 (`fx.js` / `indices.js` / `etf.js` / `fear-greed.js`)
+- 모든 프록시 실패 시 예외가 표시 없이 사라지던 문제 수정 — 카드에 "조회 실패" 표시 (환율 footer 는 기본값 유지)
+
 ## [1.12.0] - 2026-08-20
 
 ### Added
