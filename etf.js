@@ -563,7 +563,12 @@ function renderStrategyCards() {
 /* yfinance 가 내부적으로 사용하는 Yahoo Finance chart 엔드포인트를 브라우저에서 직접 호출.
    가격 + 최근 1년 배당 내역으로 TTM 수익률을 계산한다.
    CORS 프록시 자동 fallback + localStorage 1시간 캐시 (fear-greed.js 패턴 재사용). */
-const YF_PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+/* CORS 프록시 — 자체 Cloudflare Worker(cloudflare-worker.js) 우선, 실패 시 공개 프록시 순차 시도 */
+const YF_PROXIES = [
+  (url) => `https://retire-wisher.goliathtom11.workers.dev/?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 const YF_CACHE_KEY = 'etf_yield_cache';
 const YF_CACHE_TTL = 60 * 60 * 1000; // 1시간
 const YF_CHART_URL = (sym) =>
@@ -573,6 +578,16 @@ async function yfTryFetch(url) {
   const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
+}
+
+/* 직접 호출(CORS 로 대부분 실패) 후 프록시 목록을 순차 시도. */
+async function yfFetchJson(url) {
+  try { return await yfTryFetch(url); } catch (e) {}
+  let lastErr;
+  for (const proxy of YF_PROXIES) {
+    try { return await yfTryFetch(proxy(url)); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('all proxies failed');
 }
 
 /* Yahoo chart 응답 -> TTM 배당수익률(소수). 실패 시 null. */
@@ -593,13 +608,7 @@ function ttmYieldFromChart(json) {
 }
 
 async function fetchYahooYield(sym) {
-  const url = YF_CHART_URL(sym);
-  let json;
-  try {
-    json = await yfTryFetch(url);
-  } catch (e1) {
-    json = await yfTryFetch(YF_PROXY_URL(url)); // CORS 프록시 fallback
-  }
+  const json = await yfFetchJson(YF_CHART_URL(sym));
   return ttmYieldFromChart(json);
 }
 
@@ -691,9 +700,9 @@ function applyFxRate(rate, ts) {
 async function fetchFxRate() {
   let json;
   try {
-    json = await yfTryFetch(FX_CHART_URL);
-  } catch (e1) {
-    json = await yfTryFetch(YF_PROXY_URL(FX_CHART_URL)); // CORS 프록시 fallback
+    json = await yfFetchJson(FX_CHART_URL);
+  } catch (e) {
+    return null; // 모든 프록시 실패 → 기본 환율 유지
   }
   const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
   return typeof price === 'number' && price > 0 ? price : null;

@@ -1,6 +1,11 @@
 /* ===================== CNN Fear & Greed Index ===================== */
 const CNN_URL = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
-const PROXY_URL = (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+/* CORS 프록시 — 자체 Cloudflare Worker(cloudflare-worker.js) 우선, 실패 시 공개 프록시 순차 시도 */
+const CNN_PROXIES = [
+  (url) => `https://retire-wisher.goliathtom11.workers.dev/?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 const CACHE_KEY = 'fear_greed_cache';
 const CACHE_TTL = 60 * 60 * 1000; // 1시간
 
@@ -116,14 +121,18 @@ async function fetchFearGreed(force = false) {
     } catch (e) {}
   }
 
-  let data;
+  let data = null;
   try {
     data = await tryFetch(CNN_URL);
   } catch (e1) {
-    try {
-      data = await tryFetch(PROXY_URL(CNN_URL));
-      showInfo('🔁 CORS 프록시 경유로 데이터를 가져왔습니다.');
-    } catch (e2) {
+    for (const proxy of CNN_PROXIES) {
+      try {
+        data = await tryFetch(proxy(CNN_URL));
+        showInfo('🔁 CORS 프록시 경유로 데이터를 가져왔습니다.');
+        break;
+      } catch (e2) {}
+    }
+    if (!data) {
       showError('데이터 로딩 실패 — CNN API 및 프록시 모두 응답하지 않습니다.');
       return;
     }
