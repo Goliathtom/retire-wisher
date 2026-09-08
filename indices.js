@@ -27,8 +27,8 @@ const PERIODS = {
   '3M': { label: '3개월', range: '3mo', interval: '1d',  type: 'line',   changeMode: 'period', changeLabel: '3개월 전 대비', rangeLabel: '3개월', intraday: false },
   '1Y': { label: '1년',  range: '1y',  interval: '1d',  type: 'line',   changeMode: 'period', changeLabel: '1년 전 대비',  rangeLabel: '1년',   intraday: false },
   'D':  { label: '일봉',  range: '6mo', interval: '1d',  type: 'candle', changeMode: 'bar',    changeLabel: '전일 대비',   rangeLabel: '6개월', intraday: false },
-  'W':  { label: '주봉',  range: '2y',  interval: '1wk', type: 'candle', changeMode: 'bar',    changeLabel: '전주 대비',   rangeLabel: '2년',   intraday: false },
-  'M':  { label: '월봉',  range: '5y',  interval: '1mo', type: 'candle', changeMode: 'bar',    changeLabel: '전월 대비',   rangeLabel: '5년',   intraday: false },
+  'W':  { label: '주봉',  range: '2y',  interval: '1wk', type: 'candle', changeMode: 'bar',    changeLabel: '전주 대비',   rangeLabel: '2년',   intraday: false, longDate: true },
+  'M':  { label: '월봉',  range: '5y',  interval: '1mo', type: 'candle', changeMode: 'bar',    changeLabel: '전월 대비',   rangeLabel: '5년',   intraday: false, longDate: true },
 };
 const DEFAULT_PERIOD = '1D';
 
@@ -288,7 +288,7 @@ function renderAsset(asset, data) {
 
   const p = PERIODS[asset.period];
   const isCandle = p.type === 'candle';
-  const stamp = p.intraday ? timeFmt : dateFmt;
+  const stamp = p.intraday ? timeFmt : p.longDate ? ymdFmt : dateFmt; // 1년 초과 기간은 연도 포함
   const { series, prevClose } = data;
   const cur = series[series.length - 1].c;
 
@@ -313,11 +313,12 @@ function renderAsset(asset, data) {
     ? buildCandleSVG(series, asset.chartW, asset.chartH, xFmt)
     : buildChartSVG(series, DIR_COLORS[dir], asset.chartW, asset.chartH, xFmt);
 
-  /* 기간 최저·최고 (캔들은 봉의 고가/저가, 선은 종가 기준) */
+  /* 기간 최고·평균·최저 (캔들은 봉의 고가/저가, 선은 종가 기준 — 평균은 항상 종가 평균) */
   const highVals = series.map((b) => (isCandle ? b.h : b.c));
   const lowVals = series.map((b) => (isCandle ? b.l : b.c));
   const highIdx = highVals.indexOf(Math.max(...highVals));
   const lowIdx = lowVals.indexOf(Math.min(...lowVals));
+  const avg = series.reduce((s, b) => s + b.c, 0) / series.length;
   const rl = p.rangeLabel || p.label;
   rangeEl.innerHTML =
     `<div class="fx-range-item">` +
@@ -326,6 +327,13 @@ function renderAsset(asset, data) {
         `<span class="fx-range-date">${stamp(series[highIdx].x)}</span>` +
       `</div>` +
       `<span class="fx-range-val high">${numFmt(highVals[highIdx], dec)}</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${rl} 평균</span>` +
+        `<span class="fx-range-date"></span>` +
+      `</div>` +
+      `<span class="fx-range-val">${numFmt(avg, dec)}</span>` +
     `</div>` +
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
@@ -368,6 +376,7 @@ function renderM2(asset, data) {
   const ys = series.map((p) => p.y);
   const highIdx = ys.indexOf(Math.max(...ys));
   const lowIdx = ys.indexOf(Math.min(...ys));
+  const avg = ys.reduce((s, v) => s + v, 0) / ys.length;
   const rl = M2_PERIODS[asset.period].label;
   rangeEl.innerHTML =
     `<div class="fx-range-item">` +
@@ -376,6 +385,13 @@ function renderM2(asset, data) {
         `<span class="fx-range-date">${ymFmt(series[highIdx].x)}</span>` +
       `</div>` +
       `<span class="fx-range-val high">${numFmt(ys[highIdx], 0)}조원</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${rl} 평균</span>` +
+        `<span class="fx-range-date"></span>` +
+      `</div>` +
+      `<span class="fx-range-val">${numFmt(avg, 0)}조원</span>` +
     `</div>` +
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +

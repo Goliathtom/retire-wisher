@@ -182,10 +182,11 @@ function renderCurrency(cur, data) {
   const dispSeries = m === 1 ? series : series.map((pt) => ({ x: pt.x, y: pt.y * m }));
   chartEl.innerHTML = buildChartSVG(dispSeries, DIR_COLORS[dir], cur.chartW, cur.chartH, xFmt);
 
-  /* 기간 최저·최고 */
+  /* 기간 최고·평균·최저 */
   const ys = series.map((pt) => pt.y * m);
   const lowIdx = ys.indexOf(Math.min(...ys));
   const highIdx = ys.indexOf(Math.max(...ys));
+  const avg = ys.reduce((s, v) => s + v, 0) / ys.length;
   rangeEl.innerHTML =
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
@@ -193,6 +194,13 @@ function renderCurrency(cur, data) {
         `<span class="fx-range-date">${stamp(series[highIdx].x)}</span>` +
       `</div>` +
       `<span class="fx-range-val high">${wonFmt(ys[highIdx])}${u}</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${p.rangeLabel} 평균</span>` +
+        `<span class="fx-range-date"></span>` +
+      `</div>` +
+      `<span class="fx-range-val">${wonFmt(avg)}${u}</span>` +
     `</div>` +
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
