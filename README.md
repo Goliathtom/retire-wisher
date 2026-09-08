@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-대한민국 세법 기준으로 **근로소득 + 배당·이자소득의 세후 실수령액**을 계산하고, **미국·국내 ETF 배당 전략**별 예상 수익을 시뮬레이션하며, **CNN Fear & Greed Index**·**실시간 환율**·**주요 지수(주가지수·원자재·암호화폐)**로 시장 상황을 확인할 수 있는 종합 도구입니다.
+대한민국 세법 기준으로 **근로소득 + 배당·이자소득의 세후 실수령액**을 계산하고, **미국·국내 ETF 배당 전략**별 예상 수익을 시뮬레이션하며, **CNN Fear & Greed Index**·**실시간 환율**·**주요 지수(주가지수·원자재·암호화폐·M2 통화량)**로 시장 상황을 확인할 수 있는 종합 도구입니다.
 
 ## 페이지 구성
 
@@ -56,6 +56,7 @@
 - **기간별 변동 표시** — 기간 시작 직전 종가 대비(1일=전일 대비, 캔들=직전 봉 대비), 상승=빨강·하락=파랑
 - **x/y축 표시** — 날짜(YY-MM-DD, 단기는 시각)·지수값 그리드
 - **Yahoo Finance 조회** — CORS 프록시 자동 fallback + 지수·기간별 localStorage 5분 캐시
+- **M2 통화량** — 한국은행 ECOS 통계(광의통화, 평잔·계절조정계열, 월간) 기준 잔액(조원)과 전월/전년동월 대비 증가율, 기간 1년·3년·5년·10년 선택(기본 1년), 1시간 캐시. 자체 Cloudflare Worker `/ecos` 라우트 경유 — ECOS 인증키는 Worker Secret에만 보관
 
 ## 적용 세법 기준 (2026년)
 
@@ -92,6 +93,7 @@ npx serve .
 ├── fx.js            # 실시간 환율 — 데이터 페치 및 차트 렌더링
 ├── indices.html     # 주요 지수 — UI 마크업 + 스타일
 ├── indices.js       # 주요 지수 — 데이터 페치 및 선/캔들 차트 렌더링
+├── cloudflare-worker.js  # CORS 프록시 + ECOS M2 중계 — Cloudflare Worker 배포용
 └── scripts/
     ├── requirements.txt   # yfinance, pykrx
     └── update_yields.py   # ETF 배당 수익률(TTM) 자동 갱신 스크립트

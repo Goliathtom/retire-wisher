@@ -2,7 +2,9 @@
 /* 코스피·다우존스·나스닥·S&P 500 지수를 조회한다.
    각 지수 카드마다 기간(1일·1주·1개월·3개월·1년)을 독립적으로 선택하며, 기간을 바꾸면
    해당 지수만 다시 로드한다. 변동 기준은 기간 시작 직전 종가(chartPreviousClose).
-   fx.js 와 동일한 CORS 프록시 fallback + localStorage 캐시(TTL 5분, 지수·기간별로 분리). */
+   fx.js 와 동일한 CORS 프록시 fallback + localStorage 캐시(TTL 5분, 지수·기간별로 분리).
+   M2 통화량(월간)은 한국은행 ECOS 를 자체 Worker(/ecos) 경유로 조회한다 — 인증키가
+   Worker Secret 에만 있어 공개 프록시 fallback 은 불가능. */
 
 /* CORS 프록시 — 자체 Cloudflare Worker(cloudflare-worker.js) 우선, 실패 시 공개 프록시 순차 시도 */
 const IDX_PROXIES = [
@@ -29,6 +31,16 @@ const PERIODS = {
   'M':  { label: '월봉',  range: '5y',  interval: '1mo', type: 'candle', changeMode: 'bar',    changeLabel: '전월 대비',   rangeLabel: '5년',   intraday: false },
 };
 const DEFAULT_PERIOD = '1D';
+
+/* M2 통화량(월간) 전용 — 캔들 없음, 기간은 표시할 개월 수. */
+const M2_ENDPOINT = 'https://retire-wisher.goliathtom11.workers.dev/ecos';
+const M2_CACHE_TTL = 60 * 60 * 1000; // 월간 데이터 — 1시간 캐시
+const M2_PERIODS = {
+  '1Y':  { label: '1년',  months: 12 },
+  '3Y':  { label: '3년',  months: 36 },
+  '5Y':  { label: '5년',  months: 60 },
+  '10Y': { label: '10년', months: 120 },
+};
 /* 상승하락 방향별 선 그래프 색상: 상승=빨강 · 하락=파랑 · 보합=회색 (.fx-change 색과 통일) */
 const DIR_COLORS = { up: '#f87171', down: '#6c8cff', flat: '#94a3b8' };
 const CANDLE_UP = '#f87171';   // 양봉(상승) = 빨강
@@ -65,6 +77,9 @@ const ASSETS = [
     chartW: 820, chartH: 240 },
   { code: 'BTCKRW', symbol: 'BTC-KRW', color: '#f7931a', period: DEFAULT_PERIOD, cardEl: 'cardBTCKRW', decimals: 0,
     rateEl: 'rateBTCKRW', changeEl: 'changeBTCKRW', chartEl: 'chartBTCKRW', rangeEl: 'rangeBTCKRW', periodsEl: 'periodsBTCKRW',
+    chartW: 820, chartH: 240 },
+  { code: 'M2', type: 'ecos', period: '1Y', periods: M2_PERIODS, cacheTtl: M2_CACHE_TTL, cardEl: 'cardM2',
+    rateEl: 'rateM2', changeEl: 'changeM2', chartEl: 'chartM2', rangeEl: 'rangeM2', periodsEl: 'periodsM2',
     chartW: 820, chartH: 240 },
 ];
 
@@ -134,10 +149,44 @@ async function fetchIdxData(symbol, period) {
   return dataFromChart(json, p.interval);
 }
 
+/* ECOS M2(십억원, 월간) -> { series(조원), prev(전월값), yoyBase(전년동월값) }. 실패 시 null.
+   전년동월 대비 계산을 위해 표시 개월 수보다 14개월 앞서 조회한 뒤 표시분만 자른다
+   (통계 발표가 2~3개월 늦는 것까지 감안). */
+async function fetchM2Data(periodKey) {
+  const months = M2_PERIODS[periodKey].months;
+  const yyyymm = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const now = new Date();
+  const start = yyyymm(new Date(now.getFullYear(), now.getMonth() - (months + 14), 1));
+  const end = yyyymm(now);
+
+  const json = await idxTryFetch(`${M2_ENDPOINT}?start=${start}&end=${end}`);
+  const rows = json?.StatisticSearch?.row;
+  if (!Array.isArray(rows)) return null;
+
+  const all = [];
+  for (const r of rows) {
+    const t = String(r.TIME || '');
+    const v = parseFloat(r.DATA_VALUE);
+    if (/^\d{6}$/.test(t) && isFinite(v) && v > 0) {
+      all.push({ x: Date.UTC(+t.slice(0, 4), +t.slice(4) - 1, 1), y: v / 1000 }); // 십억원 -> 조원
+    }
+  }
+  if (all.length < 2) return null;
+  all.sort((a, b) => a.x - b.x);
+
+  const series = all.slice(-months);
+  const last = new Date(series[series.length - 1].x);
+  const yoyX = Date.UTC(last.getUTCFullYear() - 1, last.getUTCMonth(), 1);
+  const yoyBase = all.find((p) => p.x === yoyX)?.y ?? null;
+  const prev = series.length >= 2 ? series[series.length - 2].y : null;
+  return { series, prev, yoyBase };
+}
+
 const numFmt = (n, d = 2) => n.toLocaleString('ko-KR', { minimumFractionDigits: d, maximumFractionDigits: d });
 const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 const timeFmt = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getFullYear()).slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const ymFmt = (ms) => { const d = new Date(ms); return `${String(d.getUTCFullYear()).slice(2)}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 const axisValFmt = (v) => v.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
 
 /* 차트 축(y축 값 그리드 + x축 라벨) SVG. xTicks: [{x, label, anchor}...] */
@@ -287,23 +336,75 @@ function renderAsset(asset, data) {
     `</div>`;
 }
 
+/* M2 통화량 렌더 — 현재 잔액(조원) + 전월/전년동월 대비 + 라인 차트 + 기간 최고·최저. */
+function renderM2(asset, data) {
+  const rateEl = document.getElementById(asset.rateEl);
+  const changeEl = document.getElementById(asset.changeEl);
+  const chartEl = document.getElementById(asset.chartEl);
+  const rangeEl = document.getElementById(asset.rangeEl);
+  if (!rateEl || !data) return;
+
+  const { series, prev, yoyBase } = data;
+  const cur = series[series.length - 1].y;
+  rateEl.classList.remove('loading');
+  rateEl.textContent = `${numFmt(cur, 0)}조원`;
+
+  /* 전월 대비 (방향·색 기준) + 전년동월 대비 증가율 */
+  const diff = prev != null ? cur - prev : 0;
+  const pct = prev ? (diff / prev) * 100 : 0;
+  const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const arrow = diff > 0 ? '▲' : diff < 0 ? '▼' : '−';
+  const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+  let yoyTxt = '';
+  if (yoyBase) {
+    const yoy = ((cur - yoyBase) / yoyBase) * 100;
+    yoyTxt = ` · 전년동월 대비 ${yoy >= 0 ? '+' : '-'}${Math.abs(yoy).toFixed(1)}%`;
+  }
+  changeEl.className = `fx-change ${dir}`;
+  changeEl.textContent = `${arrow} ${sign}${numFmt(Math.abs(diff), 1)}조원 (${sign}${Math.abs(pct).toFixed(2)}%) · 전월 대비${yoyTxt}`;
+
+  chartEl.innerHTML = buildChartSVG(series, DIR_COLORS[dir], asset.chartW, asset.chartH, ymFmt);
+
+  const ys = series.map((p) => p.y);
+  const highIdx = ys.indexOf(Math.max(...ys));
+  const lowIdx = ys.indexOf(Math.min(...ys));
+  const rl = M2_PERIODS[asset.period].label;
+  rangeEl.innerHTML =
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${rl} 최고</span>` +
+        `<span class="fx-range-date">${ymFmt(series[highIdx].x)}</span>` +
+      `</div>` +
+      `<span class="fx-range-val high">${numFmt(ys[highIdx], 0)}조원</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${rl} 최저</span>` +
+        `<span class="fx-range-date">${ymFmt(series[lowIdx].x)}</span>` +
+      `</div>` +
+      `<span class="fx-range-val low">${numFmt(ys[lowIdx], 0)}조원</span>` +
+    `</div>`;
+}
+
 /* 카드별 기간 로드 (지수·기간별 캐시). */
 async function loadAsset(asset) {
   const period = asset.period;
   const cacheKey = `idx_${asset.code}_${period}`;
+  const ttl = asset.cacheTtl || IDX_CACHE_TTL;
+  const render = asset.type === 'ecos' ? renderM2 : renderAsset;
 
   /* 캐시 확인 */
   try {
     const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-    if (cached && Date.now() - cached.ts < IDX_CACHE_TTL) {
-      if (asset.period === period) renderAsset(asset, cached.data);
+    if (cached && Date.now() - cached.ts < ttl) {
+      if (asset.period === period) render(asset, cached.data);
       return;
     }
   } catch (e) {}
 
   let data = null;
   try {
-    data = await fetchIdxData(asset.symbol, period);
+    data = asset.type === 'ecos' ? await fetchM2Data(period) : await fetchIdxData(asset.symbol, period);
   } catch (e) {} // 모든 프록시 실패 → data=null 로 '조회 실패' 표시
   if (asset.period !== period) return; // 그 사이 다른 기간이 선택됨 → 최신 요청만 반영
 
@@ -313,22 +414,23 @@ async function loadAsset(asset) {
     return;
   }
 
-  renderAsset(asset, data);
+  render(asset, data);
   localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
 }
 
-/* 카드별 기간 토글 버튼 생성 + 이벤트 연결. */
+/* 카드별 기간 토글 버튼 생성 + 이벤트 연결 (M2 는 자산별 기간 맵 사용). */
 function buildPeriodButtons(asset) {
   const container = document.getElementById(asset.periodsEl);
   if (!container) return;
-  container.innerHTML = Object.keys(PERIODS)
-    .map((k) => `<button class="card-period-btn${k === asset.period ? ' active' : ''}" data-period="${k}">${PERIODS[k].label}</button>`)
+  const periods = asset.periods || PERIODS;
+  container.innerHTML = Object.keys(periods)
+    .map((k) => `<button class="card-period-btn${k === asset.period ? ' active' : ''}" data-period="${k}">${periods[k].label}</button>`)
     .join('');
   container.addEventListener('click', (e) => {
     const btn = e.target.closest('.card-period-btn');
     if (!btn) return;
     const p = btn.dataset.period;
-    if (p === asset.period || !PERIODS[p]) return;
+    if (p === asset.period || !periods[p]) return;
     asset.period = p;
     container.querySelectorAll('.card-period-btn').forEach((b) => b.classList.toggle('active', b.dataset.period === p));
     loadAsset(asset);
@@ -364,3 +466,4 @@ TAB_GROUPS.forEach((group) => {
 /* ===================== 초기화 ===================== */
 ASSETS.forEach(buildPeriodButtons);
 TAB_GROUPS.forEach((g) => activateTabIn(g, g.initial));
+loadAsset(ASSETS.find((a) => a.code === 'M2')); // 통화량 섹션 (탭 없는 단독 카드)
