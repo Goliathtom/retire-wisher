@@ -22,6 +22,7 @@ const PERIODS = {
   '1M': { label: '1개월', range: '1mo', interval: '1d',  changeLabel: '1개월 전 대비', rangeLabel: '1개월', intraday: false },
   '3M': { label: '3개월', range: '3mo', interval: '1d',  changeLabel: '3개월 전 대비', rangeLabel: '3개월', intraday: false },
   '1Y': { label: '1년',  range: '1y',  interval: '1d',  changeLabel: '1년 전 대비',  rangeLabel: '1년',   intraday: false },
+  '3Y': { label: '3년',  range: '3y',  interval: '1wk', changeLabel: '3년 전 대비',  rangeLabel: '3년',   intraday: false, longDate: true },
 };
 const DEFAULT_PERIOD = '1D';
 
@@ -156,7 +157,7 @@ function renderCurrency(cur, data) {
   if (!rateEl || !data) return;
 
   const p = PERIODS[cur.period];
-  const stamp = p.intraday ? timeFmt : dateFmt;
+  const stamp = p.intraday ? timeFmt : p.longDate ? ymdFmt : dateFmt; // 1년 초과 기간은 연도 포함
   const m = cur.multiplier;
   const u = cur.unit; // '원' 또는 '' (달러 인덱스)
   const { series, prevClose } = data;
