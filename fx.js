@@ -23,6 +23,7 @@ const PERIODS = {
   '3M': { label: '3개월', range: '3mo', interval: '1d',  changeLabel: '3개월 전 대비', rangeLabel: '3개월', intraday: false },
   '1Y': { label: '1년',  range: '1y',  interval: '1d',  changeLabel: '1년 전 대비',  rangeLabel: '1년',   intraday: false },
   '3Y': { label: '3년',  range: '3y',  interval: '1wk', changeLabel: '3년 전 대비',  rangeLabel: '3년',   intraday: false, longDate: true },
+  '5Y': { label: '5년',  range: '5y',  interval: '1wk', changeLabel: '5년 전 대비',  rangeLabel: '5년',   intraday: false, longDate: true },
 };
 const DEFAULT_PERIOD = '1D';
 
