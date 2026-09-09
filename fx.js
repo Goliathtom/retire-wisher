@@ -22,6 +22,8 @@ const PERIODS = {
   '1M': { label: '1개월', range: '1mo', interval: '1d',  changeLabel: '1개월 전 대비', rangeLabel: '1개월', intraday: false },
   '3M': { label: '3개월', range: '3mo', interval: '1d',  changeLabel: '3개월 전 대비', rangeLabel: '3개월', intraday: false },
   '1Y': { label: '1년',  range: '1y',  interval: '1d',  changeLabel: '1년 전 대비',  rangeLabel: '1년',   intraday: false },
+  '3Y': { label: '3년',  range: '3y',  interval: '1wk', changeLabel: '3년 전 대비',  rangeLabel: '3년',   intraday: false, longDate: true },
+  '5Y': { label: '5년',  range: '5y',  interval: '1wk', changeLabel: '5년 전 대비',  rangeLabel: '5년',   intraday: false, longDate: true },
 };
 const DEFAULT_PERIOD = '1D';
 
@@ -156,7 +158,7 @@ function renderCurrency(cur, data) {
   if (!rateEl || !data) return;
 
   const p = PERIODS[cur.period];
-  const stamp = p.intraday ? timeFmt : dateFmt;
+  const stamp = p.intraday ? timeFmt : p.longDate ? ymdFmt : dateFmt; // 1년 초과 기간은 연도 포함
   const m = cur.multiplier;
   const u = cur.unit; // '원' 또는 '' (달러 인덱스)
   const { series, prevClose } = data;
@@ -181,10 +183,11 @@ function renderCurrency(cur, data) {
   const dispSeries = m === 1 ? series : series.map((pt) => ({ x: pt.x, y: pt.y * m }));
   chartEl.innerHTML = buildChartSVG(dispSeries, DIR_COLORS[dir], cur.chartW, cur.chartH, xFmt);
 
-  /* 기간 최저·최고 */
+  /* 기간 최고·평균·최저 */
   const ys = series.map((pt) => pt.y * m);
   const lowIdx = ys.indexOf(Math.min(...ys));
   const highIdx = ys.indexOf(Math.max(...ys));
+  const avg = ys.reduce((s, v) => s + v, 0) / ys.length;
   rangeEl.innerHTML =
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
@@ -192,6 +195,13 @@ function renderCurrency(cur, data) {
         `<span class="fx-range-date">${stamp(series[highIdx].x)}</span>` +
       `</div>` +
       `<span class="fx-range-val high">${wonFmt(ys[highIdx])}${u}</span>` +
+    `</div>` +
+    `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${p.rangeLabel} 평균</span>` +
+        `<span class="fx-range-date"></span>` +
+      `</div>` +
+      `<span class="fx-range-val">${wonFmt(avg)}${u}</span>` +
     `</div>` +
     `<div class="fx-range-item">` +
       `<div class="fx-range-top">` +
