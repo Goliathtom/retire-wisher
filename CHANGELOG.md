@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0] - 2026-09-09
+
+### Added
+- 금리 페이지 신설 (`rates.html` / `rates.js`) — 기준금리(🇰🇷 한국은행 · 🇺🇸 미국 연준)와 주택담보대출 금리(신규취급액 · 잔액, 예금은행 가중평균) 탭 카드. 기간 1년·3년·5년·10년(한국 기준금리는 1년·3년 일별, 그 외 월별), 변동은 기간 시작 대비 %p, 최고·평균·최저 칩, 1시간 캐시. 전체 페이지 nav 에 금리 메뉴 추가
+- Cloudflare Worker `/ecos` 를 series 화이트리스트 방식으로 확장 (`cloudflare-worker.js`) — m2·bok_base·us_base·mortgage_new·mortgage_bal 만 조회 허용, series 생략 시 m2 로 기존 M2 호출 호환. 일별(D)/월별(M) 주기와 기간 형식(YYYYMMDD/YYYYMM) 검증
+- Worker 버전 불일치 방어 (`rates.js`) — ECOS 응답의 STAT_CODE 를 검증해 기대한 통계표가 아니면 '조회 실패' 처리
+
 ## [1.13.0] - 2026-09-08
 
 ### Added

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-대한민국 세법 기준으로 **근로소득 + 배당·이자소득의 세후 실수령액**을 계산하고, **미국·국내 ETF 배당 전략**별 예상 수익을 시뮬레이션하며, **CNN Fear & Greed Index**·**실시간 환율**·**주요 지수(주가지수·원자재·암호화폐·M2 통화량)**로 시장 상황을 확인할 수 있는 종합 도구입니다.
+대한민국 세법 기준으로 **근로소득 + 배당·이자소득의 세후 실수령액**을 계산하고, **미국·국내 ETF 배당 전략**별 예상 수익을 시뮬레이션하며, **CNN Fear & Greed Index**·**실시간 환율**·**주요 지수(주가지수·원자재·암호화폐·M2 통화량)**·**금리(기준금리·주택담보대출)**로 시장 상황을 확인할 수 있는 종합 도구입니다.
 
 ## 페이지 구성
 
@@ -58,6 +58,13 @@
 - **Yahoo Finance 조회** — CORS 프록시 자동 fallback + 지수·기간별 localStorage 5분 캐시
 - **M2 통화량** — 한국은행 ECOS 통계(광의통화, 평잔·계절조정계열, 월간) 기준 잔액(조원)과 전월/전년동월 대비 증가율, 기간 1년·3년·5년·10년 선택(기본 1년), 1시간 캐시. 자체 Cloudflare Worker `/ecos` 라우트 경유 — ECOS 인증키는 Worker Secret에만 보관
 
+### 🏦 금리 (`rates.html`)
+- **기준금리** — 🇰🇷 한국은행 기준금리 · 🇺🇸 미국 연준 정책금리 탭 전환 (한국은행 ECOS)
+- **주택담보대출 금리** — 신규취급액 기준 · 잔액 기준 탭 전환 (예금은행 가중평균, 월별)
+- **기간 선택** — 1년·3년·5년·10년 (한국 기준금리는 1년·3년 일별, 그 외 월별), 변동은 기간 시작 대비 %p
+- **최고·평균·최저 칩 / x·y축 그리드 / 방향색 차트** — 지수·환율 페이지와 동일한 UX, 1시간 캐시
+- **Worker `/ecos` series 화이트리스트** — 허용된 지표(m2·기준금리·주담대)만 조회 가능, 응답 STAT_CODE 검증으로 버전 불일치 방어
+
 ## 적용 세법 기준 (2026년)
 
 | 항목 | 내용 |
@@ -93,7 +100,9 @@ npx serve .
 ├── fx.js            # 실시간 환율 — 데이터 페치 및 차트 렌더링
 ├── indices.html     # 주요 지수 — UI 마크업 + 스타일
 ├── indices.js       # 주요 지수 — 데이터 페치 및 선/캔들 차트 렌더링
-├── cloudflare-worker.js  # CORS 프록시 + ECOS M2 중계 — Cloudflare Worker 배포용
+├── rates.html       # 금리 — UI 마크업 + 스타일
+├── rates.js         # 금리 — 데이터 페치 및 차트 렌더링
+├── cloudflare-worker.js  # CORS 프록시 + ECOS 중계(M2·금리) — Cloudflare Worker 배포용
 └── scripts/
     ├── requirements.txt   # yfinance, pykrx
     └── update_yields.py   # ETF 배당 수익률(TTM) 자동 갱신 스크립트
