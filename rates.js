@@ -292,9 +292,7 @@ function summarizeBanks(json) {
       b.min = Math.min(b.min, min);
       b.max = Math.max(b.max, max);
     }
-    out[type] = [...byBank.values()]
-      .map((b) => ({ ...b, major: MAJOR_BANKS.test(b.name) }))
-      .sort((a, b) => a.avg - b.avg);
+    out[type] = [...byBank.values()].map((b) => ({ ...b, major: MAJOR_BANKS.test(b.name) }));
   }
   return out.F.length || out.C.length ? out : null;
 }
@@ -309,7 +307,8 @@ function bankChip(label, sub, val, cls) {
     `</div>`;
 }
 
-/* 은행별 카드 렌더 — 5대 시중은행 평균 + 은행별 범위 막대(평균 표시) + 최고·평균·최저 칩. */
+/* 은행별 카드 렌더 — 5대 시중은행 전월 평균 + 은행별 현재 공시 범위 막대(전월 평균은 빈 원)
+   + 전월 평균 최고·평균·최저 칩. 현재 공시 금리를 주 정보로, 전월 평균은 참고 정보로 표시. */
 function renderBanks() {
   const rateEl = document.getElementById('rateBANKS');
   const changeEl = document.getElementById('changeBANKS');
@@ -319,7 +318,8 @@ function renderBanks() {
   if (!rateEl || !data) return;
 
   const typeLabel = BANK_RATE_TYPES[bankState.type];
-  const banks = data[bankState.type] || [];
+  /* 현재 공시 최저 금리 낮은 순 (렌더 시 정렬 — 캐시된 데이터 순서와 무관) */
+  const banks = [...(data[bankState.type] || [])].sort((a, b) => a.min - b.min || a.avg - b.avg);
   const monthLabel = `${data.month.slice(0, 4)}년 ${+data.month.slice(4)}월 공시`;
   rateEl.classList.remove('loading');
   changeEl.className = 'fx-change flat';
@@ -335,32 +335,35 @@ function renderBanks() {
   const pool = majors.length ? majors : banks;
   const poolAvg = pool.reduce((s, b) => s + b.avg, 0) / pool.length;
   rateEl.textContent = `${numFmt(poolAvg)}%`;
-  changeEl.textContent = `${majors.length ? '5대 시중은행' : '전체 은행'} 평균 · ${typeLabel} · ${monthLabel}`;
+  changeEl.textContent = `${majors.length ? '5대 시중은행' : '전체 은행'} 전월 취급 평균 · ${typeLabel} · ${monthLabel}`;
 
   /* 막대 축: 전체 은행 최저~최고 금리. 최저·최고는 현재 공시 금리, 평균은 전월 취급 실적이라
      금리 변동기에는 평균이 범위 밖에 있을 수 있어 축에 평균도 포함한다. */
   const lo = Math.min(...banks.map((b) => Math.min(b.min, b.avg)));
   const hi = Math.max(...banks.map((b) => Math.max(b.max, b.avg)));
   const pct = (v) => (((v - lo) / (hi - lo || 1)) * 100).toFixed(1);
-  listEl.innerHTML = banks.map((b) =>
+  listEl.innerHTML =
+    `<div class="bank-row bank-head"><span>은행</span><span></span><span>현재 공시 · 전월 평균</span></div>` +
+    banks.map((b) =>
     `<div class="bank-row${b.major ? ' major' : ''}">` +
-      `<div class="bank-info">` +
-        `<span class="bank-name" title="${escHtml(b.name)}">${escHtml(b.name)}</span>` +
-        `<span class="bank-range">${numFmt(b.min)}~${numFmt(b.max)}%</span>` +
-      `</div>` +
+      `<span class="bank-name" title="${escHtml(b.name)}">${escHtml(b.name)}</span>` +
       `<div class="bank-bar">` +
         `<span class="bank-bar-range" style="left:${pct(b.min)}%;width:${(pct(b.max) - pct(b.min)).toFixed(1)}%"></span>` +
         `<span class="bank-bar-avg" style="left:${pct(b.avg)}%"></span>` +
       `</div>` +
-      `<span class="bank-avg">${numFmt(b.avg)}%</span>` +
+      `<div class="bank-vals">` +
+        `<span class="bank-range">${numFmt(b.min)}~${numFmt(b.max)}%</span>` +
+        `<span class="bank-avg">전월 평균 ${numFmt(b.avg)}%</span>` +
+      `</div>` +
     `</div>`).join('');
 
   const allAvg = banks.reduce((s, b) => s + b.avg, 0) / banks.length;
-  const low = banks[0], high = banks[banks.length - 1];
+  const byAvg = [...banks].sort((a, b) => a.avg - b.avg);
+  const low = byAvg[0], high = byAvg[byAvg.length - 1];
   rangeEl.innerHTML =
-    bankChip('최고', high.name, high.avg, 'high') +
-    bankChip('전체 은행 평균', `${banks.length}개 은행`, allAvg, '') +
-    bankChip('최저', low.name, low.avg, 'low');
+    bankChip('전월 평균 최고', high.name, high.avg, 'high') +
+    bankChip('전체 은행 전월 평균', `${banks.length}개 은행`, allAvg, '') +
+    bankChip('전월 평균 최저', low.name, low.avg, 'low');
 }
 
 /* 공시는 한 번 받아 두고 금리유형 전환은 다시 그리기만 한다 (6시간 캐시). */
