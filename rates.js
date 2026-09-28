@@ -1,8 +1,9 @@
-/* ===================== 금리 (한국은행 ECOS) ===================== */
+/* ===================== 금리 (한국은행 ECOS · 금융감독원) ===================== */
 /* 기준금리(한국·미국)와 주택담보대출 금리(신규취급액·잔액)를 자체 Cloudflare
    Worker(/ecos, series 화이트리스트) 경유로 조회한다. 인증키가 Worker Secret 에만
    있어 공개 프록시 fallback 은 불가능 — 실패 시 '조회 실패' 표시.
-   한국 기준금리는 1년·3년 일별(D), 그 외는 월별(M). 값 단위는 연 %. */
+   한국 기준금리는 1년·3년 일별(D), 그 외는 월별(M). 값 단위는 연 %.
+   은행별 주담대 비교는 금감원 공시(Worker /fss/mortgage) — '은행별 주담대 금리 비교' 섹션 참고. */
 
 const RT_ENDPOINT = 'https://retire-wisher.goliathtom11.workers.dev/ecos';
 const RT_CACHE_TTL = 60 * 60 * 1000; // 월·일 단위 통계 — 1시간 캐시
@@ -249,21 +250,181 @@ function buildPeriodButtons(asset) {
   });
 }
 
+/* ===================== 은행별 주담대 금리 비교 (금융감독원) ===================== */
+/* 금감원 '금융상품 한눈에' 공시를 Worker(/fss/mortgage) 경유로 조회한다. 과거 추이는
+   제공되지 않아 최신 공시월 기준 은행별 비교만 표시. 조건은 아파트 · 분할상환 고정. */
+const BANK_ENDPOINT = 'https://retire-wisher.goliathtom11.workers.dev/fss/mortgage';
+const BANK_CACHE_TTL = 6 * 60 * 60 * 1000; // 월 단위 공시 — 6시간 캐시
+const BANK_CACHE_KEY = 'rt_BANKS';
+const BANK_RATE_TYPES = { F: '고정금리', C: '변동금리' };
+const MAJOR_BANKS = /국민|신한|하나|우리|농협/; // 5대 시중은행
+const bankState = { type: 'F', data: null, loading: false };
+
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const bankName = (nm) => String(nm || '').replace(/주식회사|\(주\)/g, '').trim();
+
+/* Worker 응답 -> { month, F: [bank], C: [bank] }. 은행별 대표값은 아파트·분할상환 조건에서
+   전월 취급 평균금리가 가장 낮은 상품, 범위는 같은 조건 상품 전체의 현재 공시 최저~최고. 실패 시 null. */
+function summarizeBanks(json) {
+  const base = Array.isArray(json?.base) ? json.base : [];
+  const options = Array.isArray(json?.options) ? json.options : [];
+  if (!base.length || !options.length) return null;
+
+  const names = new Map(base.map((b) => [b.fin_co_no, bankName(b.kor_co_nm)]));
+  const month = base.reduce((m, b) => (String(b.dcls_month) > m ? String(b.dcls_month) : m), '');
+  if (!/^\d{6}$/.test(month)) return null;
+
+  const out = { month };
+  for (const type of Object.keys(BANK_RATE_TYPES)) {
+    const byBank = new Map();
+    for (const o of options) {
+      if (o.mrtg_type !== 'A' || o.rpay_type !== 'D' || o.lend_rate_type !== type) continue;
+      const avg = parseFloat(o.lend_rate_avg);
+      if (!isFinite(avg)) continue; // 전월 취급 실적 없는 상품
+      const rawMin = parseFloat(o.lend_rate_min), rawMax = parseFloat(o.lend_rate_max);
+      const min = isFinite(rawMin) ? rawMin : avg, max = isFinite(rawMax) ? rawMax : avg;
+      const b = byBank.get(o.fin_co_no);
+      if (!b) {
+        byBank.set(o.fin_co_no, { name: names.get(o.fin_co_no) || o.fin_co_no, avg, min, max });
+        continue;
+      }
+      b.avg = Math.min(b.avg, avg);
+      b.min = Math.min(b.min, min);
+      b.max = Math.max(b.max, max);
+    }
+    out[type] = [...byBank.values()]
+      .map((b) => ({ ...b, major: MAJOR_BANKS.test(b.name) }))
+      .sort((a, b) => a.avg - b.avg);
+  }
+  return out.F.length || out.C.length ? out : null;
+}
+
+function bankChip(label, sub, val, cls) {
+  return `<div class="fx-range-item">` +
+      `<div class="fx-range-top">` +
+        `<span class="fx-range-label">${label}</span>` +
+        `<span class="fx-range-date">${escHtml(sub)}</span>` +
+      `</div>` +
+      `<span class="fx-range-val ${cls}">${numFmt(val)}%</span>` +
+    `</div>`;
+}
+
+/* 은행별 카드 렌더 — 5대 시중은행 평균 + 은행별 범위 막대(평균 표시) + 최고·평균·최저 칩. */
+function renderBanks() {
+  const rateEl = document.getElementById('rateBANKS');
+  const changeEl = document.getElementById('changeBANKS');
+  const listEl = document.getElementById('listBANKS');
+  const rangeEl = document.getElementById('rangeBANKS');
+  const data = bankState.data;
+  if (!rateEl || !data) return;
+
+  const typeLabel = BANK_RATE_TYPES[bankState.type];
+  const banks = data[bankState.type] || [];
+  const monthLabel = `${data.month.slice(0, 4)}년 ${+data.month.slice(4)}월 공시`;
+  rateEl.classList.remove('loading');
+  changeEl.className = 'fx-change flat';
+  if (!banks.length) {
+    rateEl.textContent = '공시 없음';
+    changeEl.textContent = `${typeLabel} · ${monthLabel}`;
+    listEl.innerHTML = '';
+    rangeEl.innerHTML = '';
+    return;
+  }
+
+  const majors = banks.filter((b) => b.major);
+  const pool = majors.length ? majors : banks;
+  const poolAvg = pool.reduce((s, b) => s + b.avg, 0) / pool.length;
+  rateEl.textContent = `${numFmt(poolAvg)}%`;
+  changeEl.textContent = `${majors.length ? '5대 시중은행' : '전체 은행'} 평균 · ${typeLabel} · ${monthLabel}`;
+
+  /* 막대 축: 전체 은행 최저~최고 금리. 최저·최고는 현재 공시 금리, 평균은 전월 취급 실적이라
+     금리 변동기에는 평균이 범위 밖에 있을 수 있어 축에 평균도 포함한다. */
+  const lo = Math.min(...banks.map((b) => Math.min(b.min, b.avg)));
+  const hi = Math.max(...banks.map((b) => Math.max(b.max, b.avg)));
+  const pct = (v) => (((v - lo) / (hi - lo || 1)) * 100).toFixed(1);
+  listEl.innerHTML = banks.map((b) =>
+    `<div class="bank-row${b.major ? ' major' : ''}">` +
+      `<div class="bank-info">` +
+        `<span class="bank-name" title="${escHtml(b.name)}">${escHtml(b.name)}</span>` +
+        `<span class="bank-range">${numFmt(b.min)}~${numFmt(b.max)}%</span>` +
+      `</div>` +
+      `<div class="bank-bar">` +
+        `<span class="bank-bar-range" style="left:${pct(b.min)}%;width:${(pct(b.max) - pct(b.min)).toFixed(1)}%"></span>` +
+        `<span class="bank-bar-avg" style="left:${pct(b.avg)}%"></span>` +
+      `</div>` +
+      `<span class="bank-avg">${numFmt(b.avg)}%</span>` +
+    `</div>`).join('');
+
+  const allAvg = banks.reduce((s, b) => s + b.avg, 0) / banks.length;
+  const low = banks[0], high = banks[banks.length - 1];
+  rangeEl.innerHTML =
+    bankChip('최고', high.name, high.avg, 'high') +
+    bankChip('전체 은행 평균', `${banks.length}개 은행`, allAvg, '') +
+    bankChip('최저', low.name, low.avg, 'low');
+}
+
+/* 공시는 한 번 받아 두고 금리유형 전환은 다시 그리기만 한다 (6시간 캐시). */
+async function loadBanks() {
+  if (bankState.data) { renderBanks(); return; }
+  if (bankState.loading) return;
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(BANK_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.ts < BANK_CACHE_TTL) {
+      bankState.data = cached.data;
+      renderBanks();
+      return;
+    }
+  } catch (e) {}
+
+  bankState.loading = true;
+  let data = null;
+  try {
+    data = summarizeBanks(await rtTryFetch(BANK_ENDPOINT));
+  } catch (e) {} // Worker 실패 → '조회 실패'
+  bankState.loading = false;
+
+  if (!data) {
+    const rateEl = document.getElementById('rateBANKS');
+    if (rateEl && rateEl.classList.contains('loading')) rateEl.textContent = '조회 실패';
+    return;
+  }
+  bankState.data = data;
+  renderBanks();
+  localStorage.setItem(BANK_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+}
+
+/* 금리유형(고정·변동) 토글 — 기간 토글과 같은 버튼 스타일. */
+function buildBankTypeButtons() {
+  const container = document.getElementById('periodsBANKS');
+  if (!container) return;
+  container.innerHTML = Object.keys(BANK_RATE_TYPES)
+    .map((k) => `<button class="card-period-btn${k === bankState.type ? ' active' : ''}" data-type="${k}">${BANK_RATE_TYPES[k]}</button>`)
+    .join('');
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('.card-period-btn');
+    if (!btn || btn.dataset.type === bankState.type || !BANK_RATE_TYPES[btn.dataset.type]) return;
+    bankState.type = btn.dataset.type;
+    container.querySelectorAll('.card-period-btn').forEach((b) => b.classList.toggle('active', b.dataset.type === bankState.type));
+    renderBanks();
+  });
+}
+
 /* ===================== 섹션별 탭 전환 (기준금리 · 주담대) ===================== */
 const TAB_GROUPS = [
-  { tabsId: 'baseTabs', codes: ['KRBASE', 'USBASE'],   initial: 'KRBASE' },
-  { tabsId: 'loanTabs', codes: ['MORTNEW', 'MORTBAL'], initial: 'MORTNEW' },
+  { tabsId: 'baseTabs', codes: ['KRBASE', 'USBASE'],            initial: 'KRBASE' },
+  { tabsId: 'loanTabs', codes: ['MORTNEW', 'MORTBAL', 'BANKS'], initial: 'MORTNEW' },
 ];
 
 function activateTabIn(group, code) {
-  const asset = ASSETS.find((a) => a.code === code);
-  if (!asset) return;
+  if (!group.codes.includes(code)) return;
   group.codes.forEach((c) => {
     document.getElementById(`card${c}`)?.classList.toggle('active', c === code);
   });
   document.querySelectorAll(`#${group.tabsId} .fx-tab-btn`).forEach((b) =>
     b.classList.toggle('active', b.dataset.code === code));
-  loadAsset(asset); // 선택된 지표만 로드 (1시간 캐시 히트 시 즉시 표시)
+  if (code === 'BANKS') loadBanks(); // 금감원 공시 (6시간 캐시)
+  else loadAsset(ASSETS.find((a) => a.code === code)); // 선택된 지표만 로드 (1시간 캐시 히트 시 즉시 표시)
 }
 
 TAB_GROUPS.forEach((group) => {
@@ -275,4 +436,5 @@ TAB_GROUPS.forEach((group) => {
 
 /* ===================== 초기화 ===================== */
 ASSETS.forEach(buildPeriodButtons);
+buildBankTypeButtons();
 TAB_GROUPS.forEach((g) => activateTabIn(g, g.initial));

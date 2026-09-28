@@ -221,6 +221,28 @@
     .fx-panel.active { display: block; }
     .fx-card-wide { margin-bottom: 16px; }
 
+    /* ── 은행별 비교 ── */
+    .bank-legend { margin-top: 10px; font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+    .bank-list { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+    .bank-row {
+      display: grid;
+      grid-template-columns: 124px 1fr 64px;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 10px;
+      border-radius: 8px;
+    }
+    .bank-row.major { background: rgba(108,140,255,0.08); }
+    .bank-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .bank-name { font-size: 0.85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-row.major .bank-name { color: var(--accent); }
+    .bank-range { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+    .bank-bar { position: relative; height: 6px; background: rgba(148,163,184,0.12); border-radius: 3px; }
+    .bank-bar-range { position: absolute; top: 0; bottom: 0; min-width: 2px; background: rgba(148,163,184,0.45); border-radius: 3px; }
+    .bank-bar-avg { position: absolute; top: -3px; width: 3px; height: 12px; margin-left: -1.5px; background: var(--accent); border-radius: 2px; }
+    .bank-avg { font-size: 0.95rem; font-weight: 800; text-align: right; white-space: nowrap; }
+    @media (max-width: 640px) { .bank-row { grid-template-columns: 96px 1fr 54px; gap: 8px; padding: 7px 6px; } }
+
     footer {
       max-width: 820px;
       margin: 32px auto 0;
@@ -250,7 +272,7 @@
   <div class="hero">
     <div class="hero-emoji">🏦</div>
     <h1><span>금리</span></h1>
-    <p>한국·미국 기준금리와 주택담보대출 금리를 기간(1년·3년·5년·10년)별로 확인하세요</p>
+    <p>한국·미국 기준금리와 주택담보대출 금리를 기간(1년·3년·5년·10년)별로 확인하고, 은행별 주담대 금리를 비교하세요</p>
   </div>
 
   <div class="fx-section-label">기준금리</div>
@@ -293,6 +315,7 @@
   <div class="fx-tabs" id="loanTabs">
     <button class="fx-tab-btn active" data-code="MORTNEW">신규취급액 기준</button>
     <button class="fx-tab-btn" data-code="MORTBAL">잔액 기준</button>
+    <button class="fx-tab-btn" data-code="BANKS">은행별 비교</button>
   </div>
 
   <div class="fx-card fx-card-wide fx-panel active" id="cardMORTNEW">
@@ -324,11 +347,28 @@
     <div class="fx-chart" id="chartMORTBAL"></div>
     <div class="fx-range" id="rangeMORTBAL"></div>
   </div>
+
+  <div class="fx-card fx-card-wide fx-panel" id="cardBANKS">
+    <div class="fx-card-head">
+      <span class="fx-flag">🏦</span>
+      <div>
+        <div class="fx-pair">은행별 주택담보대출 금리</div>
+        <div class="fx-sub">금융감독원 금융상품 한눈에 · 아파트 · 분할상환 · 전월 취급 평균금리</div>
+      </div>
+    </div>
+    <div class="fx-rate loading" id="rateBANKS">불러오는 중…</div>
+    <div class="fx-change flat" id="changeBANKS"></div>
+    <div class="card-periods" id="periodsBANKS"></div>
+    <div class="bank-legend">막대는 현재 공시 금리의 최저~최고, 세로선은 전월에 실제 취급한 평균금리입니다. 금리가 오르는 시기에는 평균이 막대보다 낮게 나올 수 있습니다. 강조된 은행은 5대 시중은행입니다.</div>
+    <div class="bank-list" id="listBANKS"></div>
+    <div class="fx-range" id="rangeBANKS"></div>
+  </div>
 </div>
 
 <footer>
   금리는 한국은행 ECOS 통계 기준이며 1시간 캐시됩니다. 변동은 기간 시작 시점 대비 %p 입니다.<br>
   주택담보대출 금리는 예금은행 가중평균으로, 실제 개별 대출 금리와 다를 수 있습니다.<br>
+  은행별 비교는 금융감독원 금융상품통합비교공시(아파트 · 분할상환, 전월 취급 평균금리) 기준이며 6시간 캐시됩니다.<br>
   <strong style="color: var(--accent);">※ 본 정보는 참고용이며 실제 금리와 차이가 있을 수 있습니다.</strong><br>
   <span style="opacity: 0.7;">© 2026 은퇴바라기 (Goliathtom) · MIT License</span>
 </footer>
