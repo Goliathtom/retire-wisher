@@ -163,6 +163,16 @@
     }
     .slider-label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; min-width: 50px; text-align: right; }
     .hint { margin-top: 8px; font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+    .link-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--accent);
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .link-btn[hidden] { display: none; }
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 640px) { .field-row { grid-template-columns: 1fr; gap: 20px; } }
 
@@ -293,13 +303,13 @@
         <span class="input-unit">원</span>
       </div>
       <div class="slider-wrap">
-        <input type="range" id="incomeRange" min="0" max="500000000" step="1000000" aria-label="연봉" />
+        <input type="range" id="incomeRange" min="0" max="1000000000" step="1000000" aria-label="연봉" />
         <span class="slider-label" id="incomeLabel"></span>
       </div>
     </div>
 
     <div class="input-group">
-      <label for="price">집값 <span class="sub">시가 기준</span></label>
+      <label for="price">집값 <span class="sub">매매가 · 필요 자기자본 계산</span></label>
       <div class="input-wrap">
         <input type="number" id="price" min="0" step="10000000" autocomplete="off" />
         <span class="input-unit">원</span>
@@ -308,6 +318,19 @@
         <input type="range" id="priceRange" min="0" max="4000000000" step="10000000" aria-label="집값" />
         <span class="slider-label" id="priceLabel"></span>
       </div>
+    </div>
+
+    <div class="input-group">
+      <label for="kb">KB 시세 <span class="sub">일반평균가 · LTV·정책 최대한도 계산</span></label>
+      <div class="input-wrap">
+        <input type="number" id="kb" min="0" step="10000000" autocomplete="off" />
+        <span class="input-unit">원</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="kbRange" min="0" max="4000000000" step="10000000" aria-label="KB 시세" />
+        <span class="slider-label" id="kbLabel"></span>
+      </div>
+      <div class="hint"><span id="kbHint"></span> <button type="button" class="link-btn" id="kbReset">매매가와 같게</button></div>
     </div>
 
     <div class="input-group">
@@ -417,6 +440,7 @@
 
 <footer>
   <span id="rulesAsOf">2026년 9월</span> 기준 규제로 계산해요. LTV·DSR·정책 최대한도 중 가장 작은 금액이 최대 가능액이며, DSR 은 실제 금리에 스트레스 금리를 더해 계산합니다.<br>
+  LTV 와 정책 최대한도는 KB 시세(일반평균가), 필요 자기자본은 매매가 기준이에요. 은행에 따라 감정가 등 다른 시세를 쓸 수 있어요.<br>
   정책대출(디딤돌·보금자리론), 청년 장래소득 인정, 총대출 1억원 이하 DTI 적용, 은행별 심사 차이는 반영하지 않아요.<br>
   대출 금리는 금융감독원 금융상품통합비교공시(아파트 · 분할상환, 전월 취급 평균금리) 기준이며 6시간 캐시됩니다.<br>
   <strong style="color: var(--accent);">※ 본 계산은 참고용이며 실제 대출 가능액은 금융회사 심사 결과에 따라 달라집니다.</strong><br>
