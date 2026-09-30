@@ -1,46 +1,43 @@
-/* ===================== 실시간 환율 + 통화별 기간 선택 (Yahoo Finance) ===================== */
-/* Yahoo Finance chart 엔드포인트에서 원/달러·원/유로·원/엔·달러 인덱스 시세를 조회한다.
-   각 통화 카드마다 기간(1일·1주·1개월·3개월·1년)을 독립적으로 선택하며, 기간을 바꾸면
-   해당 통화만 다시 로드한다. 변동 기준은 기간 시작 직전 종가(chartPreviousClose).
-   indices.js 와 동일한 CORS 프록시 fallback + localStorage 캐시(TTL 5분, 통화·기간별로 분리). */
+/* ===================== 환율 + 통화별 기간 선택 (한국은행 ECOS) ===================== */
+/* 한국은행 ECOS '주요국 통화의 대원화환율'(731Y001, 일별 매매기준율)을 자체 Cloudflare
+   Worker(/ecos, series 화이트리스트) 경유로 조회한다. 원/달러·원/유로·원/엔(100엔)·원/위안.
+   각 통화 카드마다 기간(1일·1주·1개월·3개월·1년·3년·5년)을 독립적으로 선택하며, 변동 기준은
+   기간 시작 시점(또는 그 이전 마지막 영업일) 값. 1일은 최근 영업일 마감값의 전일(전 영업일) 대비. 인증키가 Worker Secret 에만 있어 공개 프록시
+   fallback 은 없다. 일별 데이터라 localStorage 1시간 캐시(통화·기간별). */
 
-/* CORS 프록시 — 자체 Cloudflare Worker(cloudflare-worker.js) 우선, 실패 시 공개 프록시 순차 시도 */
-const FX_PROXIES = [
-  (url) => `https://retire-wisher.goliathtom11.workers.dev/?url=${encodeURIComponent(url)}`,
-  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-];
-const FX_CACHE_TTL = 5 * 60 * 1000; // 5분
-const FX_CHART_URL = (sym, range, interval) =>
-  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}`;
+const FX_ENDPOINT = 'https://retire-wisher.goliathtom11.workers.dev/ecos';
+const FX_CACHE_TTL = 60 * 60 * 1000; // 일별 고시 — 1시간 캐시
+const FX_STAT = '731Y001';           // 주요국 통화의 대원화환율
+const FX_FETCH_BUFFER_DAYS = 14;     // 연휴를 감안해 기간 시작 전 값을 찾도록 여유 조회
 
-/* 선택 가능한 기간. changeLabel 은 변동 표시 접미사, rangeLabel 은 최고/최저 칩 접두어,
-   intraday 는 최고/최저를 시각으로 표기할지 여부. */
+/* 선택 가능한 기간. days/months 는 표시 기간, lastN 은 최근 N개 영업일(1일 = 최근 영업일 마감값과
+   그 전 영업일 비교), changeLabel 은 변동 표시 접미사, rangeLabel 은 최고/최저 칩 접두어,
+   longDate 는 칩 날짜에 연도를 표기할지 여부. */
 const PERIODS = {
-  '1D': { label: '1일',  range: '1d',  interval: '5m',  changeLabel: '전일 대비',   rangeLabel: '1일',   intraday: true },
-  '1W': { label: '1주',  range: '5d',  interval: '30m', changeLabel: '1주 전 대비',  rangeLabel: '1주',   intraday: true },
-  '1M': { label: '1개월', range: '1mo', interval: '1d',  changeLabel: '1개월 전 대비', rangeLabel: '1개월', intraday: false },
-  '3M': { label: '3개월', range: '3mo', interval: '1d',  changeLabel: '3개월 전 대비', rangeLabel: '3개월', intraday: false },
-  '1Y': { label: '1년',  range: '1y',  interval: '1d',  changeLabel: '1년 전 대비',  rangeLabel: '1년',   intraday: false },
-  '3Y': { label: '3년',  range: '3y',  interval: '1wk', changeLabel: '3년 전 대비',  rangeLabel: '3년',   intraday: false, longDate: true },
-  '5Y': { label: '5년',  range: '5y',  interval: '1wk', changeLabel: '5년 전 대비',  rangeLabel: '5년',   intraday: false, longDate: true },
+  '1D': { label: '1일',  lastN: 2,    changeLabel: '전일 대비',   rangeLabel: '1일' },
+  '1W': { label: '1주',  days: 7,    changeLabel: '1주 전 대비',  rangeLabel: '1주' },
+  '1M': { label: '1개월', months: 1,  changeLabel: '1개월 전 대비', rangeLabel: '1개월' },
+  '3M': { label: '3개월', months: 3,  changeLabel: '3개월 전 대비', rangeLabel: '3개월' },
+  '1Y': { label: '1년',  months: 12, changeLabel: '1년 전 대비',  rangeLabel: '1년' },
+  '3Y': { label: '3년',  months: 36, changeLabel: '3년 전 대비',  rangeLabel: '3년', longDate: true },
+  '5Y': { label: '5년',  months: 60, changeLabel: '5년 전 대비',  rangeLabel: '5년', longDate: true },
 };
 const DEFAULT_PERIOD = '1D';
 
-/* 지표 정의: multiplier 는 표시 단위(엔은 100엔 기준), unit 은 값 뒤 단위(달러 인덱스는 없음),
-   period 는 카드별 현재 선택 기간. 달러 인덱스(DXY)는 넓은 카드용 차트 크기(chartW/chartH)를 별도 지정. */
+/* 지표 정의: series 는 Worker 화이트리스트 이름, item 은 기대하는 ECOS 항목 코드(응답 검증),
+   multiplier 는 표시 배수(ECOS 원/엔은 이미 100엔 기준), period 는 카드별 현재 선택 기간. */
 const CURRENCIES = [
-  { code: 'USD', symbol: 'KRW=X',    multiplier: 1,   unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardUSD',
+  { code: 'USD', series: 'fx_usd', item: '0000001', multiplier: 1, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardUSD',
     rateEl: 'rateUSD', changeEl: 'changeUSD', chartEl: 'chartUSD', rangeEl: 'rangeUSD', periodsEl: 'periodsUSD',
     chartW: 820, chartH: 240 },
-  { code: 'EUR', symbol: 'EURKRW=X', multiplier: 1,   unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardEUR',
+  { code: 'EUR', series: 'fx_eur', item: '0000003', multiplier: 1, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardEUR',
     rateEl: 'rateEUR', changeEl: 'changeEUR', chartEl: 'chartEUR', rangeEl: 'rangeEUR', periodsEl: 'periodsEUR',
     chartW: 820, chartH: 240 },
-  { code: 'JPY', symbol: 'JPYKRW=X', multiplier: 100, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardJPY',
+  { code: 'JPY', series: 'fx_jpy', item: '0000002', multiplier: 1, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardJPY',
     rateEl: 'rateJPY', changeEl: 'changeJPY', chartEl: 'chartJPY', rangeEl: 'rangeJPY', periodsEl: 'periodsJPY',
     chartW: 820, chartH: 240 },
-  { code: 'DXY', symbol: 'DX-Y.NYB', multiplier: 1,   unit: '',   period: DEFAULT_PERIOD, cardEl: 'cardDXY',
-    rateEl: 'rateDXY', changeEl: 'changeDXY', chartEl: 'chartDXY', rangeEl: 'rangeDXY', periodsEl: 'periodsDXY',
+  { code: 'CNY', series: 'fx_cny', item: '0000053', multiplier: 1, unit: '원', period: DEFAULT_PERIOD, cardEl: 'cardCNY',
+    rateEl: 'rateCNY', changeEl: 'changeCNY', chartEl: 'chartCNY', rangeEl: 'rangeCNY', periodsEl: 'periodsCNY',
     chartW: 820, chartH: 240 },
 ];
 
@@ -50,53 +47,68 @@ async function fxTryFetch(url) {
   return res.json();
 }
 
-/* Yahoo chart 응답 -> { series: [{x,y}...], prevClose }. 실패 시 null. */
-function dataFromChart(json) {
-  const result = json?.chart?.result?.[0];
-  const ts = result?.timestamp;
-  const closes = result?.indicators?.quote?.[0]?.close;
-  if (!Array.isArray(ts) || !Array.isArray(closes)) return null;
+/* 기간 시작 기준 시각 — 마지막 영업일에서 days 일 또는 months 개월 전 (UTC 자정 기준). */
+function periodCutoff(lastX, p) {
+  if (p.days) return lastX - p.days * 86_400_000;
+  const d = new Date(lastX);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - p.months, d.getUTCDate());
+}
 
-  const series = [];
-  for (let i = 0; i < ts.length; i++) {
-    const c = closes[i];
-    if (typeof c === 'number' && c > 0) series.push({ x: ts[i] * 1000, y: c });
+/* ECOS 응답 -> { series: [{x,y}...], prevClose }. 실패 시 null.
+   series 는 기준 시각 이후 값, prevClose 는 기준 시각 이전 마지막 값(없으면 첫 값).
+   lastN 기간(1일)은 최근 N개 영업일 값이며 prevClose 는 그 중 첫 값(전 영업일 마감). */
+function fxDataFromEcos(json, cur, periodKey) {
+  const rows = json?.StatisticSearch?.row;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  if (rows[0].STAT_CODE !== FX_STAT || rows[0].ITEM_CODE1 !== cur.item) return null; // Worker 버전 불일치 방어
+
+  const all = [];
+  for (const r of rows) {
+    const t = String(r.TIME || '');
+    const v = parseFloat(r.DATA_VALUE);
+    if (/^\d{8}$/.test(t) && isFinite(v) && v > 0) {
+      all.push({ x: Date.UTC(+t.slice(0, 4), +t.slice(4, 6) - 1, +t.slice(6)), y: v });
+    }
   }
-  if (series.length < 2) return null;
+  all.sort((a, b) => a.x - b.x);
+  if (all.length < 2) return null;
 
-  const meta = result.meta || {};
-  const pc = meta.chartPreviousClose ?? meta.previousClose;
-  const prevClose = typeof pc === 'number' && pc > 0 ? pc : series[0].y;
+  const p = PERIODS[periodKey];
+  if (p.lastN) {
+    const series = all.slice(-p.lastN);
+    return { series, prevClose: series[0].y };
+  }
+  const cutoff = periodCutoff(all[all.length - 1].x, p);
+  const series = all.filter((pt) => pt.x > cutoff);
+  if (series.length < 2) return null;
+  const before = all.filter((pt) => pt.x <= cutoff);
+  const prevClose = before.length ? before[before.length - 1].y : series[0].y;
   return { series, prevClose };
 }
 
-/* 직접 호출(CORS 로 대부분 실패) 후 프록시 목록을 순차 시도. */
-async function fxFetchJson(url) {
-  try { return await fxTryFetch(url); } catch (e) {}
-  let lastErr;
-  for (const proxy of FX_PROXIES) {
-    try { return await fxTryFetch(proxy(url)); } catch (e) { lastErr = e; }
-  }
-  throw lastErr || new Error('all proxies failed');
-}
-
-async function fetchFxData(symbol, period) {
-  const p = PERIODS[period];
-  const json = await fxFetchJson(FX_CHART_URL(symbol, p.range, p.interval));
-  return dataFromChart(json);
+async function fetchFxData(cur, periodKey) {
+  const p = PERIODS[periodKey];
+  const now = new Date();
+  const s = p.lastN
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - FX_FETCH_BUFFER_DAYS)
+    : p.days
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - p.days - FX_FETCH_BUFFER_DAYS)
+    : new Date(now.getFullYear(), now.getMonth() - p.months, now.getDate() - FX_FETCH_BUFFER_DAYS);
+  const ymd = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const json = await fxTryFetch(`${FX_ENDPOINT}?series=${cur.series}&cycle=D&start=${ymd(s)}&end=${ymd(now)}`);
+  return fxDataFromEcos(json, cur, periodKey);
 }
 
 const wonFmt = (n) => n.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
-const timeFmt = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getFullYear()).slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const dateFmt = (ms) => new Date(ms).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const ymdFmt = (ms) => { const d = new Date(ms); return `${String(d.getUTCFullYear()).slice(2)}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`; };
 
 /* 상승하락 방향별 그래프 색상: 상승=빨강 · 하락=파랑 · 보합=회색 (.fx-change 색과 통일) */
 const DIR_COLORS = { up: '#f87171', down: '#6c8cff', flat: '#94a3b8' };
 
 const CHART_MARGIN = { L: 46, R: 10, T: 10, B: 22 };
 
-/* 차트 축(y축 값 그리드 + x축 라벨) SVG. 눈금 간격이 1 미만이면 소수 2자리로 표기(intraday 환율 대응). */
+/* 차트 축(y축 값 그리드 + x축 라벨) SVG. 눈금 간격이 1 미만이면 소수 2자리로 표기(좁은 범위 대응). */
 function buildAxes(W, PAD_L, PAD_R, PAD_T, plotH, yMin, yMax, yScale, xTicks) {
   let g = '';
   const yN = 4;
@@ -135,9 +147,11 @@ function buildChartSVG(series, color, W = 820, H = 240, xFmt = ymdFmt) {
   const area = `${line} L ${xScale(xMax).toFixed(1)} ${bottom} L ${xScale(xMin).toFixed(1)} ${bottom} Z`;
   const last = series[series.length - 1];
 
-  const xN = 4;
+  /* x축 눈금 4개. 점이 4개 이하(1일·연휴 낀 1주)면 날짜가 겹치지 않게 실제 영업일에만 표시 */
+  const xN = Math.min(4, series.length);
+  const tickAt = series.length <= 4 ? (i) => xs[i] : (i) => xMin + ((xMax - xMin) * i) / (xN - 1);
   const xTicks = Array.from({ length: xN }, (_, i) => {
-    const t = xMin + ((xMax - xMin) * i) / (xN - 1);
+    const t = tickAt(i);
     return { x: xScale(t), label: xFmt(t), anchor: i === 0 ? 'start' : i === xN - 1 ? 'end' : 'middle' };
   });
 
@@ -158,9 +172,9 @@ function renderCurrency(cur, data) {
   if (!rateEl || !data) return;
 
   const p = PERIODS[cur.period];
-  const stamp = p.intraday ? timeFmt : p.longDate ? ymdFmt : dateFmt; // 1년 초과 기간은 연도 포함
+  const stamp = p.longDate ? ymdFmt : dateFmt; // 1년 초과 기간은 연도 포함
   const m = cur.multiplier;
-  const u = cur.unit; // '원' 또는 '' (달러 인덱스)
+  const u = cur.unit;
   const { series, prevClose } = data;
   const cur_ = series[series.length - 1].y * m;
   const base = prevClose * m;
@@ -169,7 +183,7 @@ function renderCurrency(cur, data) {
   rateEl.classList.remove('loading');
   rateEl.innerHTML = `${wonFmt(cur_)}${u ? `<span class="won">${u}</span>` : ''}`;
 
-  /* 기간 대비 변동 (기간 시작 직전 종가 기준) */
+  /* 기간 대비 변동 (기간 시작 시점 값 기준) */
   const diff = cur_ - base;
   const pct = base !== 0 ? (diff / base) * 100 : 0;
   const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
@@ -178,8 +192,8 @@ function renderCurrency(cur, data) {
   changeEl.className = `fx-change ${dir}`;
   changeEl.textContent = `${arrow} ${sign}${wonFmt(Math.abs(diff))}${u} (${sign}${Math.abs(pct).toFixed(2)}%) · ${p.changeLabel}`;
 
-  /* 기간 차트 (y축은 표시 단위로 환산한 값, x축은 단기=시각·장기=날짜) */
-  const xFmt = p.intraday ? timeFmt : ymdFmt;
+  /* 기간 차트 (y축은 표시 단위로 환산한 값, x축은 날짜) */
+  const xFmt = ymdFmt;
   const dispSeries = m === 1 ? series : series.map((pt) => ({ x: pt.x, y: pt.y * m }));
   chartEl.innerHTML = buildChartSVG(dispSeries, DIR_COLORS[dir], cur.chartW, cur.chartH, xFmt);
 
@@ -215,7 +229,7 @@ function renderCurrency(cur, data) {
 /* 카드별 기간 로드 (통화·기간별 캐시). */
 async function loadCurrency(cur) {
   const period = cur.period;
-  const cacheKey = `fx_${cur.code}_${period}`;
+  const cacheKey = `fxe_${cur.code}_${period}`; // ECOS 전환 — Yahoo 시절 캐시(fx_)와 분리
 
   /* 캐시 확인 */
   try {
@@ -228,8 +242,8 @@ async function loadCurrency(cur) {
 
   let data = null;
   try {
-    data = await fetchFxData(cur.symbol, period);
-  } catch (e) {} // 모든 프록시 실패 → data=null 로 '조회 실패' 표시
+    data = await fetchFxData(cur, period);
+  } catch (e) {} // Worker 실패 → data=null 로 '조회 실패' 표시
   if (cur.period !== period) return; // 그 사이 다른 기간이 선택됨 → 최신 요청만 반영
 
   if (!data) {
@@ -269,7 +283,7 @@ function activateTab(code) {
   });
   document.querySelectorAll('#fxTabs .fx-tab-btn').forEach((b) =>
     b.classList.toggle('active', b.dataset.code === code));
-  loadCurrency(cur); // 선택된 통화만 로드 (5분 캐시 히트 시 즉시 표시)
+  loadCurrency(cur); // 선택된 통화만 로드 (1시간 캐시 히트 시 즉시 표시)
 }
 
 document.getElementById('fxTabs').addEventListener('click', (e) => {
