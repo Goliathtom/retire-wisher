@@ -1,5 +1,5 @@
 /* ===================== 상수 ===================== */
-let USD_TO_KRW       = 1450; // 기본값 — 실시간 환율 조회 성공 시 갱신됨
+let USD_TO_KRW       = 1450; // 기본값 — 한국은행 ECOS 환율 조회 성공 시 갱신됨
 const WITHHOLDING_US = 0.15;
 const WITHHOLDING_KR = 0.154;
 
@@ -674,38 +674,56 @@ async function loadLiveYields() {
   setYieldStatus(`✅ 미국 ETF 실시간 수익률 적용 완료 (Yahoo Finance, TTM)${suffix} · 국내 ETF는 pykrx 스크립트 기준`);
 }
 
-/* ===================== 실시간 원/달러 환율 (Yahoo Finance) ===================== */
-/* Yahoo Finance 의 USD/KRW 심볼(KRW=X)에서 현재 환율을 조회한다.
-   실시간 수익률과 동일한 CORS 프록시 fallback + localStorage 1시간 캐시 패턴 재사용. */
-const FX_CACHE_KEY = 'usdkrw_fx_cache';
+/* ===================== 원/달러 환율 (한국은행 ECOS) ===================== */
+/* 한국은행 ECOS 원/미국달러 매매기준율(731Y001/0000001, 영업일 일별)의 최근 값을
+   자체 Cloudflare Worker(/ecos?series=fx_usd) 경유로 조회한다. localStorage 1시간 캐시. */
+const FX_ENDPOINT = 'https://retire-wisher.goliathtom11.workers.dev/ecos';
+const FX_CACHE_KEY = 'usdkrw_ecos_cache'; // Yahoo 시절 캐시(usdkrw_fx_cache)와 분리
 const FX_CACHE_TTL = 60 * 60 * 1000; // 1시간
-const FX_CHART_URL =
-  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('KRW=X')}?range=1d&interval=1d`;
+const FX_LOOKBACK_DAYS = 14;          // 연휴에도 최근 영업일 값이 포함되도록 여유 조회
 
-function setFxRate(rate, ts) {
+/* ECOS 응답 -> { rate, date: 'YYYY-MM-DD' } (가장 최근 영업일). 실패 시 null. */
+function usdKrwFromEcos(json) {
+  const rows = json?.StatisticSearch?.row;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  let latest = null;
+  for (const r of rows) {
+    if (r.STAT_CODE !== '731Y001' || r.ITEM_CODE1 !== '0000001') return null; // Worker 버전 불일치 방어
+    const t = String(r.TIME || '');
+    const v = parseFloat(r.DATA_VALUE);
+    if (/^\d{8}$/.test(t) && isFinite(v) && v > 0 && (!latest || t > latest.t)) latest = { t, v };
+  }
+  if (!latest) return null;
+  return { rate: latest.v, date: `${latest.t.slice(0, 4)}-${latest.t.slice(4, 6)}-${latest.t.slice(6)}` };
+}
+
+function setFxRate(rate, date) {
   const el = document.getElementById('fxRate');
   if (!el) return;
   const won = Math.round(rate).toLocaleString('ko-KR');
   el.textContent = `1$ = ${won}원`;
-  if (ts) el.title = `Yahoo Finance 기준 (${new Date(ts).toLocaleString('ko-KR')})`;
+  if (date) el.title = `한국은행 ECOS 매매기준율 (${date})`;
 }
 
-/* 실시간 환율을 계산에 반영: 전역 환율 갱신 + footer 표시 + USD 표기 재계산 */
-function applyFxRate(rate, ts) {
+/* 조회한 환율을 계산에 반영: 전역 환율 갱신 + footer 표시 + USD 표기 재계산 */
+function applyFxRate(rate, date) {
   USD_TO_KRW = rate;
-  setFxRate(rate, ts);
+  setFxRate(rate, date);
   calculate();
 }
 
 async function fetchFxRate() {
-  let json;
+  const now = new Date();
+  const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - FX_LOOKBACK_DAYS);
+  const ymd = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   try {
-    json = await yfFetchJson(FX_CHART_URL);
+    const res = await fetch(`${FX_ENDPOINT}?series=fx_usd&cycle=D&start=${ymd(s)}&end=${ymd(now)}`,
+      { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return null;
+    return usdKrwFromEcos(await res.json());
   } catch (e) {
-    return null; // 모든 프록시 실패 → 기본 환율 유지
+    return null; // Worker 실패 → 기본 환율 유지
   }
-  const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  return typeof price === 'number' && price > 0 ? price : null;
 }
 
 async function loadLiveFxRate() {
@@ -713,15 +731,15 @@ async function loadLiveFxRate() {
   try {
     const cached = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || 'null');
     if (cached && Date.now() - cached.ts < FX_CACHE_TTL) {
-      applyFxRate(cached.rate, cached.ts);
+      applyFxRate(cached.rate, cached.date);
       return;
     }
   } catch (e) {}
 
-  const rate = await fetchFxRate();
-  if (rate == null) return; // 실패 시 기본값(1,450원) 유지
-  applyFxRate(rate, Date.now());
-  localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ ts: Date.now(), rate }));
+  const fx = await fetchFxRate();
+  if (!fx) return; // 실패 시 기본값(1,450원) 유지
+  applyFxRate(fx.rate, fx.date);
+  localStorage.setItem(FX_CACHE_KEY, JSON.stringify({ ts: Date.now(), rate: fx.rate, date: fx.date }));
 }
 
 /* ===================== 초기화 ===================== */

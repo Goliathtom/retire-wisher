@@ -19,7 +19,8 @@
    https://<워커 URL>/ecos?series=<지표>&cycle=<M|D>&start=&end=
    한국은행 ECOS 조회 (series 생략 시 m2, cycle 생략 시 지표 기본 주기).
    지표: m2 · bok_base(한은 기준금리) · us_base(미 정책금리) ·
-   mortgage_new(주담대 신규취급액) · mortgage_bal(주담대 잔액)
+   mortgage_new(주담대 신규취급액) · mortgage_bal(주담대 잔액) ·
+   fx_usd · fx_eur · fx_jpy · fx_cny(원/달러·유로·100엔·위안 일별 매매기준율)
    인증키는 Worker Secret(ECOS_KEY)에만 존재하므로 정적 페이지에 노출되지 않는다.
 
    https://<워커 URL>/fss/mortgage
@@ -70,6 +71,10 @@ const ECOS_SERIES = {
   us_base:      { stat: '902Y006', item: 'US',           cycles: ['M'] },      // 미국 정책금리
   mortgage_new: { stat: '121Y006', item: 'BECBLA0302',   cycles: ['M'] },      // 주담대(신규취급액)
   mortgage_bal: { stat: '121Y015', item: 'BECBLB020202', cycles: ['M'] },      // 주담대(잔액)
+  fx_usd:       { stat: '731Y001', item: '0000001',      cycles: ['D'] },      // 원/미국달러(매매기준율)
+  fx_eur:       { stat: '731Y001', item: '0000003',      cycles: ['D'] },      // 원/유로
+  fx_jpy:       { stat: '731Y001', item: '0000002',      cycles: ['D'] },      // 원/일본엔(100엔)
+  fx_cny:       { stat: '731Y001', item: '0000053',      cycles: ['D'] },      // 원/위안(매매기준율)
 };
 
 /* /ecos?series=&cycle=&start=&end= — 한국은행 ECOS 조회.
