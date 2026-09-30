@@ -186,6 +186,32 @@
     .seg-btn.active { background: rgba(108,140,255,0.12); border-color: var(--accent); color: var(--accent); }
     @media (max-width: 640px) { .seg-btn { font-size: 0.78rem; } }
 
+    /* ── 상품 유형 설명 말풍선 (꼬리가 선택·호버한 버튼을 가리킴) ── */
+    .tip-bubble {
+      position: relative;
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid rgba(108,140,255,0.35);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    .tip-bubble::before {
+      content: '';
+      position: absolute;
+      top: -7px;
+      left: var(--tip-x, 12%);
+      width: 12px;
+      height: 12px;
+      background: var(--surface2);
+      border-left: 1px solid rgba(108,140,255,0.35);
+      border-top: 1px solid rgba(108,140,255,0.35);
+      transform: translateX(-50%) rotate(45deg);
+      transition: left 0.15s;
+    }
+    .tip-title { font-weight: 700; color: var(--accent); margin-right: 6px; }
+
     /* ── 결과 ── */
     .result-label { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
     .result-amount { margin-top: 6px; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); }
@@ -327,6 +353,7 @@
         <button type="button" class="seg-btn" data-value="periodic">주기형</button>
         <button type="button" class="seg-btn" data-value="fixed">순수고정</button>
       </div>
+      <div class="tip-bubble" id="productTip" role="note" aria-live="polite"></div>
     </div>
 
     <div class="input-group field-row">

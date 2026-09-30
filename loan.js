@@ -186,6 +186,12 @@ const REGION_HINTS = {
   local: '서울·경기·인천 밖의 비규제지역이에요.',
 };
 const LIMIT_LABELS = { dsr: 'DSR', ltv: 'LTV', cap: '정책 최대한도' };
+const PRODUCT_TIPS = {
+  variable: '코픽스·금융채 6개월물 등을 따라 보통 6개월마다, 상품에 따라 1년마다 금리가 바뀌어요. 금리가 오르면 월 상환액도 바로 늘어요. 변동주기가 5년 미만이라 스트레스 금리를 100% 반영해요.',
+  mixed: '처음 5년 등 정해진 기간은 금리가 고정되고, 그 뒤로는 변동형처럼 바뀌어요. 은행의 \'고정금리\' 주담대는 대부분 이 유형이에요. 고정기간이 만기에서 차지하는 비중이 클수록 스트레스 금리를 덜 반영해요.',
+  periodic: '5년 등 정해진 주기마다 그 시점 금리로 다시 정하고 다음 주기까지 고정해요. 만기까지 주기 단위로 고정돼서 같은 기간의 혼합형보다 스트레스 금리를 덜 반영해요. 주기가 5년 미만이면 변동형과 같아요.',
+  fixed: '만기 내내 처음 금리가 그대로예요. 보금자리론 같은 정책 모기지에 많고 은행 상품은 드물어요. 스트레스 금리를 반영하지 않아 DSR 한도가 가장 커요. 공시 고정금리에는 혼합형이 섞여 있어 실제 금리는 더 높을 수 있으니 직접 고쳐 넣어주세요.',
+};
 
 const loanState = { ...LOAN_DEFAULTS };
 let bankData = null;
@@ -299,6 +305,17 @@ function renderFixedYears(r) {
   }
 }
 
+/* 상품 유형 말풍선 — 기본은 선택한 유형, PC 호버 시 해당 유형을 미리 보여준다. */
+function renderProductTip(product = loanState.product) {
+  const btn = document.querySelector(`.seg[data-key="product"] .seg-btn[data-value="${product}"]`);
+  const tip = $('productTip');
+  if (!btn || !tip) return;
+  tip.innerHTML = `<span class="tip-title">${PRODUCTS[product].label}</span>${PRODUCT_TIPS[product]}`;
+  const segLeft = btn.parentElement.getBoundingClientRect().left;
+  const b = btn.getBoundingClientRect();
+  tip.style.setProperty('--tip-x', `${(b.left - segLeft + b.width / 2).toFixed(1)}px`);
+}
+
 function renderMoney() {
   for (const [id, key] of Object.entries(MONEY_FIELDS)) {
     const v = loanState[key];
@@ -353,6 +370,7 @@ function updateLoan() {
   renderSegments();
   renderMoney();
   renderFixedYears(r);
+  renderProductTip();
   renderRateHint();
   $('regionHint').textContent = REGION_HINTS[loanState.region];
   renderResult(r);
@@ -376,6 +394,17 @@ function bindLoanInputs() {
       updateLoan();
     });
   });
+  const productSeg = document.querySelector('.seg[data-key="product"]');
+  const previewTip = (e) => {
+    const btn = e.target.closest('.seg-btn');
+    if (btn) renderProductTip(btn.dataset.value);
+  };
+  productSeg.addEventListener('mouseover', previewTip);
+  productSeg.addEventListener('focusin', previewTip);
+  productSeg.addEventListener('mouseleave', () => renderProductTip());
+  productSeg.addEventListener('focusout', () => renderProductTip());
+  window.addEventListener('resize', () => renderProductTip());
+
   $('fixedYears').addEventListener('input', () => {
     const v = parseInt($('fixedYears').value, 10);
     if (isFinite(v) && v >= 1) { loanState.fixedYears = v; updateLoan(); }
