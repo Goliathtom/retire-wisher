@@ -58,6 +58,24 @@ function annuityPayment(p, rate, months) {
   return r === 0 ? p / months : (p * r) / (1 - Math.pow(1 + r, -months));
 }
 
+/* 원리금균등 상환 스케줄 (원 단위) — 월 상환액은 반올림, 이자는 원 미만 버림,
+   마지막 회차에서 남은 원금을 모두 갚는다. rows: { n, payment, principal, interest, balance } */
+function amortizationSchedule(principal, rate, months) {
+  const P = Math.round(principal);
+  if (P <= 0 || months <= 0) return [];
+  const r = rate / 100 / 12;
+  const payment = Math.round(annuityPayment(P, rate, months));
+  const rows = [];
+  let balance = P;
+  for (let n = 1; n <= months; n++) {
+    const interest = Math.floor(balance * r);
+    const princ = n === months ? balance : Math.min(balance, payment - interest);
+    balance -= princ;
+    rows.push({ n, payment: princ + interest, principal: princ, interest, balance });
+  }
+  return rows;
+}
+
 const floorMan = (n) => Math.max(0, Math.floor(n / 10_000) * 10_000); // 만원 단위 내림
 
 /* 입력 -> 한도 계산 결과. capLimit 이 null 이면 정책 최대한도 없음(지방).
@@ -372,6 +390,7 @@ function renderResult(r) {
   $('monthlySub').textContent = r.max > 0
     ? `연 ${manText(r.monthly * 12)} · 금리 ${rateText(loanState.rate)}%`
     : '대출 가능액이 없어요';
+  $('scheduleOpen').hidden = r.max <= 0;
   $('equityAmount').textContent = wonShort(r.equity);
   $('equitySub').textContent = `매매가 ${wonShort(loanState.price)} − 대출 ${wonShort(r.max)}`;
 
@@ -452,12 +471,65 @@ function bindLoanInputs() {
   });
 }
 
+/* ===================== 월별 상환 스케줄 팝업 ===================== */
+function renderSchedule() {
+  const r = calcLoan(loanState);
+  const rows = amortizationSchedule(r.max, loanState.rate, r.termYears * 12);
+  if (!rows.length) return false;
+  const won = (n) => n.toLocaleString('ko-KR');
+  const totalInterest = rows.reduce((s, x) => s + x.interest, 0);
+
+  $('scheduleSub').textContent = `대출 ${wonShort(r.max)} · 금리 ${rateText(loanState.rate)}% · ${r.termYears}년 원리금균등`;
+  $('scheduleSummary').innerHTML = [
+    ['월 상환액', `${won(rows[0].payment)}원`],
+    ['총 이자', wonShort(totalInterest)],
+    ['총 상환액', wonShort(r.max + totalInterest)],
+  ].map(([k, v]) => `<div class="summary-item"><span>${k}</span><strong>${v}</strong></div>`).join('');
+
+  /* 12회차마다 연차 구분 행 (연간 원금·이자 합계) */
+  let html = '';
+  for (let i = 0; i < rows.length; i += 12) {
+    const year = rows.slice(i, i + 12);
+    const yp = year.reduce((s, x) => s + x.principal, 0);
+    const yi = year.reduce((s, x) => s + x.interest, 0);
+    html += `<tr class="year-row"><td colspan="5">${i / 12 + 1}년차 · 원금 ${wonShort(yp)} · 이자 ${wonShort(yi)}</td></tr>`;
+    html += year.map((x) =>
+      `<tr><td>${x.n}회</td><td>${won(x.principal)}</td><td>${won(x.interest)}</td>` +
+      `<td class="col-pay">${won(x.payment)}</td><td>${won(x.balance)}</td></tr>`).join('');
+  }
+  $('scheduleBody').innerHTML = html;
+  return true;
+}
+
+function openSchedule() {
+  if (!renderSchedule()) return;
+  $('scheduleModal').hidden = false;
+  document.body.style.overflow = 'hidden'; // 뒤쪽 페이지 스크롤 잠금
+  $('scheduleModal').querySelector('.modal-body').scrollTop = 0;
+  $('scheduleModal').querySelector('.modal').focus();
+}
+
+function closeSchedule() {
+  if ($('scheduleModal').hidden) return;
+  $('scheduleModal').hidden = true;
+  document.body.style.overflow = '';
+  $('scheduleOpen').focus();
+}
+
+function bindSchedule() {
+  $('scheduleOpen').addEventListener('click', openSchedule);
+  $('scheduleClose').addEventListener('click', closeSchedule);
+  $('scheduleModal').addEventListener('click', (e) => { if (e.target === $('scheduleModal')) closeSchedule(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSchedule(); });
+}
+
 async function initLoanPage() {
   $('rulesAsOf').textContent = LOAN_RULES.asOf;
   loadLoanState();
   renderBankOptions();
   $('rate').value = loanState.rate.toFixed(2);
   bindLoanInputs();
+  bindSchedule();
   updateLoan();
 
   bankData = await loadBankData();

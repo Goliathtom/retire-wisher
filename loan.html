@@ -242,6 +242,86 @@
     .result-box .amount.yellow { color: var(--yellow); }
     .result-box .sub-amount { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
 
+    .detail-btn {
+      margin-top: 12px;
+      padding: 5px 14px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--accent2);
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .detail-btn:hover { border-color: var(--accent2); }
+    .detail-btn[hidden] { display: none; }
+
+    /* ── 월별 상환 스케줄 팝업 ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,0.6);
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal {
+      width: 100%;
+      max-width: 640px;
+      max-height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none;
+    }
+    .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 20px 20px 12px; }
+    .modal-title { font-size: 1.05rem; font-weight: 800; }
+    .modal-sub { margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: var(--text); background: var(--surface2); }
+    .modal-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; padding: 0 20px 14px; }
+    .summary-item { background: var(--surface2); border-radius: 8px; padding: 10px 12px; }
+    .summary-item span { display: block; font-size: 0.7rem; color: var(--muted); }
+    .summary-item strong { font-size: 0.95rem; font-weight: 800; white-space: nowrap; }
+    .modal-body { overflow-y: auto; border-top: 1px solid var(--border); }
+    .schedule-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    .schedule-table th {
+      position: sticky;
+      top: 0;
+      padding: 8px 10px;
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-align: right;
+    }
+    .schedule-table td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid rgba(46,50,72,0.6); }
+    .schedule-table th:first-child, .schedule-table td:first-child { text-align: left; }
+    .schedule-table .year-row td { background: rgba(108,140,255,0.08); color: var(--accent); font-size: 0.75rem; font-weight: 700; text-align: left; }
+    .modal-foot { padding: 10px 20px 14px; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
+    @media (max-width: 520px) {
+      .col-pay { display: none; }
+      .modal-backdrop { padding: 10px; }
+      .modal { max-height: calc(100vh - 20px); }
+      .schedule-table th, .schedule-table td { padding: 6px 8px; }
+    }
+
     .limit-bars { margin-top: 24px; display: flex; flex-direction: column; gap: 12px; }
     .limit-top { display: flex; justify-content: space-between; gap: 12px; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
     .limit-row.binding .limit-top { color: var(--text); font-weight: 700; }
@@ -426,6 +506,7 @@
         <div class="label">💳 월 상환액 (실제 금리)</div>
         <div class="amount purple" id="monthlyAmount">-</div>
         <div class="sub-amount" id="monthlySub"></div>
+        <button type="button" class="detail-btn" id="scheduleOpen" aria-haspopup="dialog">자세히 보기</button>
       </div>
       <div class="result-box">
         <div class="label">💰 필요 자기자본</div>
@@ -446,6 +527,28 @@
   <strong style="color: var(--accent);">※ 본 계산은 참고용이며 실제 대출 가능액은 금융회사 심사 결과에 따라 달라집니다.</strong><br>
   <span style="opacity: 0.7;">© 2026 은퇴바라기 (Goliathtom) · MIT License</span>
 </footer>
+
+<div class="modal-backdrop" id="scheduleModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="scheduleTitle" tabindex="-1">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="scheduleTitle">월별 상환 스케줄</div>
+        <div class="modal-sub" id="scheduleSub"></div>
+      </div>
+      <button type="button" class="modal-close" id="scheduleClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-summary" id="scheduleSummary"></div>
+    <div class="modal-body">
+      <table class="schedule-table">
+        <thead>
+          <tr><th>회차</th><th>원금</th><th>이자</th><th class="col-pay">상환액</th><th>남은 원금</th></tr>
+        </thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-foot">단위: 원 · 실제 금리 기준 원리금균등 상환이에요. 이자는 원 미만을 버리고 마지막 회차에서 남은 원금을 정리해요. 변동형이나 혼합형의 고정기간 이후 금리 변동은 반영하지 않아요.</div>
+  </div>
+</div>
 
 <script src="loan.js"></script>
 </body>
