@@ -60,14 +60,16 @@ function annuityPayment(p, rate, months) {
 
 const floorMan = (n) => Math.max(0, Math.floor(n / 10_000) * 10_000); // 만원 단위 내림
 
-/* 입력 -> 한도 계산 결과. capLimit 이 null 이면 정책 최대한도 없음(지방). */
-function calcLoan({ income, price, region, firstHome, existingAnnual, product, fixedYears, termYears, rate }) {
+/* 입력 -> 한도 계산 결과. capLimit 이 null 이면 정책 최대한도 없음(지방).
+   price 는 매매가(필요 자기자본), kbPrice 는 KB 시세(LTV 담보가치·정책 최대한도 시가 구간).
+   일반 은행 주담대는 시세 정보로 담보가치를 정하며 매매가와 비교해 낮은 값을 쓰는 규정은 없다. */
+function calcLoan({ income, price, kbPrice, region, firstHome, existingAnnual, product, fixedYears, termYears, rate }) {
   const rule = LOAN_RULES.regions[region];
   const term = Math.min(termYears, rule.maxTerm);
   const fixed = Math.min(fixedYears, term);
 
   const ltvRate = firstHome ? rule.ltvFirst : rule.ltv;
-  const ltvLimit = floorMan(price * ltvRate);
+  const ltvLimit = floorMan(kbPrice * ltvRate);
 
   const ratio = stressRatio(product, fixed, term, rule.stage);
   const stressAdd = rule.stress * ratio;
@@ -75,7 +77,7 @@ function calcLoan({ income, price, region, firstHome, existingAnnual, product, f
   const monthlyCapacity = Math.max(0, income * LOAN_RULES.dsrLimit - existingAnnual) / 12;
   const dsrLimit = floorMan(annuityPrincipal(monthlyCapacity, dsrRate, term * 12));
 
-  const capLimit = rule.capByPrice ? LOAN_RULES.priceCaps.find((c) => price <= c.upTo).cap : null;
+  const capLimit = rule.capByPrice ? LOAN_RULES.priceCaps.find((c) => kbPrice <= c.upTo).cap : null;
 
   const candidates = [['dsr', dsrLimit], ['ltv', ltvLimit]];
   if (capLimit !== null) candidates.push(['cap', capLimit]);
@@ -175,11 +177,12 @@ async function loadBankData() {
 /* ===================== 화면 ===================== */
 const LOAN_STORE_KEY = 'loan_inputs';
 const LOAN_DEFAULTS = {
-  income: 60_000_000, price: 800_000_000, region: 'regulated', firstHome: false, existingAnnual: 0,
+  income: 60_000_000, price: 800_000_000, kbPrice: 800_000_000, kbManual: false,
+  region: 'regulated', firstHome: false, existingAnnual: 0,
   product: 'mixed', fixedYears: 5, termYears: 30, bank: 'MAJOR', rate: FALLBACK_RATE, rateManual: false,
 };
 const TERM_OPTIONS = [10, 15, 20, 25, 30, 35, 40];
-const MONEY_FIELDS = { income: 'income', price: 'price', existing: 'existingAnnual' };
+const MONEY_FIELDS = { income: 'income', price: 'price', kb: 'kbPrice', existing: 'existingAnnual' };
 const REGION_HINTS = {
   regulated: '서울 전역과 경기 일부 등 투기과열지구·조정대상지역이에요. 지정 지역은 바뀔 수 있어요.',
   metro: '규제지역이 아닌 경기·인천 지역이에요.',
@@ -210,6 +213,7 @@ function loadLoanState() {
     }
     if (!LOAN_RULES.regions[loanState.region]) loanState.region = LOAN_DEFAULTS.region;
     if (!PRODUCTS[loanState.product]) loanState.product = LOAN_DEFAULTS.product;
+    if (!loanState.kbManual) loanState.kbPrice = loanState.price; // 직접 입력 전에는 매매가를 따른다
     return;
   }
   /* 처음 방문: 소득 계산기에 저장된 연봉이 있으면 가져온다 */
@@ -316,6 +320,20 @@ function renderProductTip(product = loanState.product) {
   tip.style.setProperty('--tip-x', `${(b.left - segLeft + b.width / 2).toFixed(1)}px`);
 }
 
+function renderKbHint() {
+  const { price, kbPrice, kbManual } = loanState;
+  $('kbReset').hidden = !kbManual;
+  if (!kbManual) {
+    $('kbHint').textContent = '매매가와 같은 값으로 계산하고 있어요. KB 시세를 알면 직접 입력하세요.';
+  } else if (kbPrice < price) {
+    $('kbHint').textContent = `매매가보다 ${wonShort(price - kbPrice)} 낮아요. LTV 한도는 KB 시세로 계산해요.`;
+  } else if (kbPrice > price) {
+    $('kbHint').textContent = `매매가보다 ${wonShort(kbPrice - price)} 높아요.`;
+  } else {
+    $('kbHint').textContent = '매매가와 같아요.';
+  }
+}
+
 function renderMoney() {
   for (const [id, key] of Object.entries(MONEY_FIELDS)) {
     const v = loanState[key];
@@ -355,9 +373,10 @@ function renderResult(r) {
     ? `연 ${manText(r.monthly * 12)} · 금리 ${rateText(loanState.rate)}%`
     : '대출 가능액이 없어요';
   $('equityAmount').textContent = wonShort(r.equity);
-  $('equitySub').textContent = `집값 ${wonShort(loanState.price)} − 대출 ${wonShort(r.max)}`;
+  $('equitySub').textContent = `매매가 ${wonShort(loanState.price)} − 대출 ${wonShort(r.max)}`;
 
   $('detailList').innerHTML = [
+    ['LTV·최대한도 기준', `KB 시세 ${wonShort(loanState.kbPrice)}`],
     ['스트레스 금리', `${rateText(r.stressBase)}%p × ${pctText(r.stressRatio)} = ${rateText(r.stressAdd)}%p`],
     ['DSR 심사 금리', `${rateText(loanState.rate)}% + ${rateText(r.stressAdd)}%p = ${rateText(r.dsrRate)}%`],
     ['만기 · 상환 방식', `${r.termYears}년 · 원리금균등`],
@@ -369,6 +388,7 @@ function updateLoan() {
   const r = calcLoan(loanState);
   renderSegments();
   renderMoney();
+  renderKbHint();
   renderFixedYears(r);
   renderProductTip();
   renderRateHint();
@@ -378,10 +398,22 @@ function updateLoan() {
 }
 
 function bindLoanInputs() {
+  /* KB 시세는 직접 입력하기 전까지 매매가를 따라간다 */
+  const setMoney = (key, v) => {
+    loanState[key] = v;
+    if (key === 'kbPrice') loanState.kbManual = true;
+    if (key === 'price' && !loanState.kbManual) loanState.kbPrice = v;
+    updateLoan();
+  };
   for (const [id, key] of Object.entries(MONEY_FIELDS)) {
-    $(id).addEventListener('input', () => { loanState[key] = Math.max(0, parseFloat($(id).value) || 0); updateLoan(); });
-    $(id + 'Range').addEventListener('input', () => { loanState[key] = +$(id + 'Range').value; updateLoan(); });
+    $(id).addEventListener('input', () => setMoney(key, Math.max(0, parseFloat($(id).value) || 0)));
+    $(id + 'Range').addEventListener('input', () => setMoney(key, +$(id + 'Range').value));
   }
+  $('kbReset').addEventListener('click', () => {
+    loanState.kbManual = false;
+    loanState.kbPrice = loanState.price;
+    updateLoan();
+  });
   document.querySelectorAll('.seg').forEach((seg) => {
     seg.addEventListener('click', (e) => {
       const btn = e.target.closest('.seg-btn');
