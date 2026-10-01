@@ -1,7 +1,7 @@
 /* ===================== 대출 계산기 ===================== */
 /* 연봉·집값으로 주택구입 목적 주담대 최대 가능액을 계산한다 (은행권 · 무주택자 기준).
    최대 가능액 = min(LTV 한도, DSR 한도, 정책 최대한도). DSR 은 실제 금리에 스트레스 금리를
-   더해 원리금균등으로 계산하고, 월 상환액은 실제 금리로 계산한다.
+   더해 선택한 상환 방식(원리금균등·원금균등)으로 계산하고, 월 상환액은 실제 금리로 계산한다.
    금리는 금감원 '금융상품 한눈에' 공시(Worker /fss/mortgage)를 금리 페이지와 같은 캐시로 쓴다. */
 
 /* ── 규제 수치 (기준일 이후 규제가 바뀌면 여기만 고친다) ──
@@ -58,18 +58,21 @@ function annuityPayment(p, rate, months) {
   return r === 0 ? p / months : (p * r) / (1 - Math.pow(1 + r, -months));
 }
 
-/* 원리금균등 상환 스케줄 (원 단위) — 월 상환액은 반올림, 이자는 원 미만 버림,
-   마지막 회차에서 남은 원금을 모두 갚는다. rows: { n, payment, principal, interest, balance } */
-function amortizationSchedule(principal, rate, months) {
+/* 상환 스케줄 (원 단위) — 이자는 원 미만 버림, 마지막 회차에서 남은 원금을 모두 갚는다.
+   원리금균등(annuity): 월 상환액 일정(반올림). 원금균등(equal): 월 원금 일정(원 미만 버림), 이자 감소.
+   rows: { n, payment, principal, interest, balance } */
+function amortizationSchedule(principal, rate, months, repayment = 'annuity') {
   const P = Math.round(principal);
   if (P <= 0 || months <= 0) return [];
   const r = rate / 100 / 12;
   const payment = Math.round(annuityPayment(P, rate, months));
+  const equalPrincipal = Math.floor(P / months);
   const rows = [];
   let balance = P;
   for (let n = 1; n <= months; n++) {
     const interest = Math.floor(balance * r);
-    const princ = n === months ? balance : Math.min(balance, payment - interest);
+    const regular = repayment === 'equal' ? equalPrincipal : payment - interest;
+    const princ = n === months ? balance : Math.min(balance, regular);
     balance -= princ;
     rows.push({ n, payment: princ + interest, principal: princ, interest, balance });
   }
@@ -78,10 +81,23 @@ function amortizationSchedule(principal, rate, months) {
 
 const floorMan = (n) => Math.max(0, Math.floor(n / 10_000) * 10_000); // 만원 단위 내림
 
+/* 실제 금리 기준 첫 달·마지막 달 월 상환액 (원리금균등은 두 값이 같다). */
+function monthlyPayments(principal, rate, months, repayment) {
+  if (repayment !== 'equal') {
+    const m = annuityPayment(principal, rate, months);
+    return { monthly: m, monthlyLast: m };
+  }
+  const r = rate / 100 / 12;
+  const unit = principal / months;
+  return { monthly: unit + principal * r, monthlyLast: unit * (1 + r) };
+}
+
 /* 입력 -> 한도 계산 결과. capLimit 이 null 이면 정책 최대한도 없음(지방).
    price 는 매매가(필요 자기자본), kbPrice 는 KB 시세(LTV 담보가치·정책 최대한도 시가 구간).
-   일반 은행 주담대는 시세 정보로 담보가치를 정하며 매매가와 비교해 낮은 값을 쓰는 규정은 없다. */
-function calcLoan({ income, price, kbPrice, region, firstHome, existingAnnual, product, fixedYears, termYears, rate }) {
+   일반 은행 주담대는 시세 정보로 담보가치를 정하며 매매가와 비교해 낮은 값을 쓰는 규정은 없다.
+   repayment: 'annuity'(원리금균등, 기본) | 'equal'(원금균등). DSR 은 분할상환 개시 이후 실제 상환액
+   기준(은행업감독업무시행세칙 별표 18) — 원금균등은 첫해 원리금이 가장 커서 한도가 더 작다. */
+function calcLoan({ income, price, kbPrice, region, firstHome, existingAnnual, product, fixedYears, termYears, rate, repayment = 'annuity' }) {
   const rule = LOAN_RULES.regions[region];
   const term = Math.min(termYears, rule.maxTerm);
   const fixed = Math.min(fixedYears, term);
@@ -92,8 +108,16 @@ function calcLoan({ income, price, kbPrice, region, firstHome, existingAnnual, p
   const ratio = stressRatio(product, fixed, term, rule.stage);
   const stressAdd = rule.stress * ratio;
   const dsrRate = rate + stressAdd;
-  const monthlyCapacity = Math.max(0, income * LOAN_RULES.dsrLimit - existingAnnual) / 12;
-  const dsrLimit = floorMan(annuityPrincipal(monthlyCapacity, dsrRate, term * 12));
+  const annualCapacity = Math.max(0, income * LOAN_RULES.dsrLimit - existingAnnual);
+  const months = term * 12;
+  let dsrLimit;
+  if (repayment === 'equal') {
+    /* 첫 12개월 원리금 = P × [12/N + r × (12 − 66/N)] (매달 원금 P/N, 잔액 P(1 − (k−1)/N) 에 이자) */
+    const r = dsrRate / 100 / 12;
+    dsrLimit = floorMan(annualCapacity / (12 / months + r * (12 - 66 / months)));
+  } else {
+    dsrLimit = floorMan(annuityPrincipal(annualCapacity / 12, dsrRate, months));
+  }
 
   const capLimit = rule.capByPrice ? LOAN_RULES.priceCaps.find((c) => kbPrice <= c.upTo).cap : null;
 
@@ -105,7 +129,8 @@ function calcLoan({ income, price, kbPrice, region, firstHome, existingAnnual, p
     termYears: term, fixedYears: fixed,
     ltvRate, ltvLimit, dsrLimit, capLimit, max, binding,
     stressBase: rule.stress, stressRatio: ratio, stressAdd, dsrRate,
-    monthly: annuityPayment(max, rate, term * 12),
+    repayment,
+    ...monthlyPayments(max, rate, months, repayment),
     equity: Math.max(0, price - max),
   };
 }
@@ -197,7 +222,7 @@ const LOAN_STORE_KEY = 'loan_inputs';
 const LOAN_DEFAULTS = {
   income: 60_000_000, price: 800_000_000, kbPrice: 800_000_000, kbManual: false,
   region: 'regulated', firstHome: false, existingAnnual: 0,
-  product: 'mixed', fixedYears: 5, termYears: 30, bank: 'MAJOR', rate: FALLBACK_RATE, rateManual: false,
+  product: 'mixed', fixedYears: 5, termYears: 30, repayment: 'annuity', bank: 'MAJOR', rate: FALLBACK_RATE, rateManual: false,
 };
 const TERM_OPTIONS = [10, 15, 20, 25, 30, 35, 40];
 const MONEY_FIELDS = { income: 'income', price: 'price', kb: 'kbPrice', existing: 'existingAnnual' };
@@ -207,6 +232,11 @@ const REGION_HINTS = {
   local: '서울·경기·인천 밖의 비규제지역이에요.',
 };
 const LIMIT_LABELS = { dsr: 'DSR', ltv: 'LTV', cap: '정책 최대한도' };
+const REPAY_LABELS = { annuity: '원리금균등', equal: '원금균등' };
+const REPAY_HINTS = {
+  annuity: '매달 같은 금액을 갚아요. DSR 은 매년 같은 원리금으로 계산해요.',
+  equal: '매달 같은 원금에 줄어드는 이자를 더해 갚아요. DSR 은 상환액이 가장 큰 첫해 기준이라 한도가 원리금균등보다 작아요.',
+};
 const PRODUCT_TIPS = {
   variable: '코픽스·금융채 6개월물 등을 따라 보통 6개월마다, 상품에 따라 1년마다 금리가 바뀌어요. 금리가 오르면 월 상환액도 바로 늘어요. 변동주기가 5년 미만이라 스트레스 금리를 100% 반영해요.',
   mixed: '처음 5년 등 정해진 기간은 금리가 고정되고, 그 뒤로는 변동형처럼 바뀌어요. 은행의 \'고정금리\' 주담대는 대부분 이 유형이에요. 고정기간이 만기에서 차지하는 비중이 클수록 스트레스 금리를 덜 반영해요.',
@@ -231,6 +261,7 @@ function loadLoanState() {
     }
     if (!LOAN_RULES.regions[loanState.region]) loanState.region = LOAN_DEFAULTS.region;
     if (!PRODUCTS[loanState.product]) loanState.product = LOAN_DEFAULTS.product;
+    if (!REPAY_LABELS[loanState.repayment]) loanState.repayment = LOAN_DEFAULTS.repayment;
     if (!loanState.kbManual) loanState.kbPrice = loanState.price; // 직접 입력 전에는 매매가를 따른다
     return;
   }
@@ -386,10 +417,14 @@ function renderResult(r) {
 
   /* 강조 카드 — 월 상환액(실제 금리, 만원 반올림)과 필요 자기자본 */
   const manText = (n) => `${Math.round(n / 10_000).toLocaleString('ko-KR')}만원`;
+  const isEqual = r.repayment === 'equal';
+  $('monthlyLabel').textContent = isEqual ? '💳 첫 달 상환액 (실제 금리)' : '💳 월 상환액 (실제 금리)';
   $('monthlyAmount').textContent = r.max > 0 ? manText(r.monthly) : '0원';
-  $('monthlySub').textContent = r.max > 0
-    ? `연 ${manText(r.monthly * 12)} · 금리 ${rateText(loanState.rate)}%`
-    : '대출 가능액이 없어요';
+  $('monthlySub').textContent = r.max <= 0
+    ? '대출 가능액이 없어요'
+    : isEqual
+      ? `마지막 달 ${manText(r.monthlyLast)} · 금리 ${rateText(loanState.rate)}%`
+      : `연 ${manText(r.monthly * 12)} · 금리 ${rateText(loanState.rate)}%`;
   $('scheduleOpen').hidden = r.max <= 0;
   $('equityAmount').textContent = wonShort(r.equity);
   $('equitySub').textContent = `매매가 ${wonShort(loanState.price)} − 대출 ${wonShort(r.max)}`;
@@ -398,7 +433,7 @@ function renderResult(r) {
     ['LTV·최대한도 기준', `KB 시세 ${wonShort(loanState.kbPrice)}`],
     ['스트레스 금리', `${rateText(r.stressBase)}%p × ${pctText(r.stressRatio)} = ${rateText(r.stressAdd)}%p`],
     ['DSR 심사 금리', `${rateText(loanState.rate)}% + ${rateText(r.stressAdd)}%p = ${rateText(r.dsrRate)}%`],
-    ['만기 · 상환 방식', `${r.termYears}년 · 원리금균등`],
+    ['만기 · 상환 방식', `${r.termYears}년 · ${REPAY_LABELS[r.repayment]}`],
   ].map(([k, v]) => `<div class="detail-row"><span>${k}</span><span>${v}</span></div>`).join('');
 }
 
@@ -412,6 +447,7 @@ function updateLoan() {
   renderProductTip();
   renderRateHint();
   $('regionHint').textContent = REGION_HINTS[loanState.region];
+  $('repayHint').textContent = REPAY_HINTS[loanState.repayment];
   renderResult(r);
   saveLoanState();
 }
@@ -474,14 +510,14 @@ function bindLoanInputs() {
 /* ===================== 월별 상환 스케줄 팝업 ===================== */
 function renderSchedule() {
   const r = calcLoan(loanState);
-  const rows = amortizationSchedule(r.max, loanState.rate, r.termYears * 12);
+  const rows = amortizationSchedule(r.max, loanState.rate, r.termYears * 12, r.repayment);
   if (!rows.length) return false;
   const won = (n) => n.toLocaleString('ko-KR');
   const totalInterest = rows.reduce((s, x) => s + x.interest, 0);
 
-  $('scheduleSub').textContent = `대출 ${wonShort(r.max)} · 금리 ${rateText(loanState.rate)}% · ${r.termYears}년 원리금균등`;
+  $('scheduleSub').textContent = `대출 ${wonShort(r.max)} · 금리 ${rateText(loanState.rate)}% · ${r.termYears}년 ${REPAY_LABELS[r.repayment]}`;
   $('scheduleSummary').innerHTML = [
-    ['월 상환액', `${won(rows[0].payment)}원`],
+    [r.repayment === 'equal' ? '첫 달 상환액' : '월 상환액', `${won(rows[0].payment)}원`],
     ['총 이자', wonShort(totalInterest)],
     ['총 상환액', wonShort(r.max + totalInterest)],
   ].map(([k, v]) => `<div class="summary-item"><span>${k}</span><strong>${v}</strong></div>`).join('');
