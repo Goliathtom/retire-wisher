@@ -478,6 +478,15 @@
       </div>
     </div>
 
+    <div class="input-group">
+      <span class="field-label">상환 방식</span>
+      <div class="seg" data-key="repayment">
+        <button type="button" class="seg-btn" data-value="annuity">원리금균등</button>
+        <button type="button" class="seg-btn" data-value="equal">원금균등</button>
+      </div>
+      <div class="hint" id="repayHint"></div>
+    </div>
+
     <div class="input-group field-row">
       <div>
         <label for="bank">은행</label>
@@ -503,7 +512,7 @@
     <div class="result-note" id="bindingNote"></div>
     <div class="result-hero">
       <div class="result-box">
-        <div class="label">💳 월 상환액 (실제 금리)</div>
+        <div class="label" id="monthlyLabel">💳 월 상환액 (실제 금리)</div>
         <div class="amount purple" id="monthlyAmount">-</div>
         <div class="sub-amount" id="monthlySub"></div>
         <button type="button" class="detail-btn" id="scheduleOpen" aria-haspopup="dialog">자세히 보기</button>
@@ -546,7 +555,7 @@
         <tbody id="scheduleBody"></tbody>
       </table>
     </div>
-    <div class="modal-foot">단위: 원 · 실제 금리 기준 원리금균등 상환이에요. 이자는 원 미만을 버리고 마지막 회차에서 남은 원금을 정리해요. 변동형이나 혼합형의 고정기간 이후 금리 변동은 반영하지 않아요.</div>
+    <div class="modal-foot">단위: 원 · 실제 금리 기준이에요. 이자는 원 미만을 버리고 마지막 회차에서 남은 원금을 정리해요. 변동형이나 혼합형의 고정기간 이후 금리 변동은 반영하지 않아요.</div>
   </div>
 </div>
 
